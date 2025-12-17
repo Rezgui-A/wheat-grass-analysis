@@ -1,15 +1,22 @@
-opencv-python>=4.5.0
-matplotlib>=3.3.0
-numpy>=1.19.0
-scipy>=1.5.0
-segment-anything>=1.0
-Pillow>=8.0.0
-tqdm>=4.60.0
-requests>=2.25.0
-flask==3.0.0
-werkzeug==3.0.1
+# Core dependencies for Wheatgrass Analyzer (Vercel Compatible)
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# Computer Vision & Image Processing
 numpy==1.24.3
-torch==2.0.1 --index-url https://download.pytorch.org/whl/cpu
-filelock==3.12.4
-timm==0.9.5
-torchvision==0.15.2
+opencv-python-headless==4.8.1.78
+Pillow==10.1.0
+
+# Scientific Computing & Plotting
+scipy==1.11.4
+matplotlib==3.7.4
+
+# IMPORTANT: Use CPU-only PyTorch WITHOUT --index-url flag
+torch==2.1.0
+torchvision==0.16.0
+
+# Optional: SAM model - REMOVE if causing memory issues on Hobby plan
+segment-anything==1.0
+
+# Additional utilities
+requests==2.31.0
