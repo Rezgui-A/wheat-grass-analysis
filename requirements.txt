@@ -1,18 +1,19 @@
-Flask==2.3.3
+# Core web framework
+Flask==2.3.2
 Werkzeug==2.3.7
-numpy==1.24.3
-opencv-python-headless==4.8.1.78
-matplotlib==3.7.2
-scipy==1.11.2
-Pillow==10.0.0
 gunicorn==21.2.0
 
-# Use CPU-only PyTorch for Render (much smaller, faster to install)
-torch==2.0.1+cpu --index-url https://download.pytorch.org/whl/cpu
-torchvision==0.15.2+cpu --index-url https://download.pytorch.org/whl/cpu
+# Computer vision (use older compatible versions)
+numpy==1.23.5
+opencv-python-headless==4.7.0.72
+Pillow==9.5.0
 
-# SAM - use the PyPI version (not GitHub)
-segment-anything-py==1.0.1
+# Plotting
+matplotlib==3.6.3
 
-# Other dependencies that might help
-onnxruntime==1.15.1
+# Scientific computing
+scipy==1.9.3
+
+# PyTorch for CPU (older but stable)
+torch==1.12.1+cpu --index-url https://download.pytorch.org/whl/cpu
+torchvision==0.13.1+cpu --index-url https://download.pytorch.org/whl/cpu
