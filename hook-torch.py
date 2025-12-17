@@ -25,7 +25,7 @@ hiddenimports += ['torch._C', 'torch._dl', 'torch._dynamo', 'torch._inductor']
 # Add torchvision
 try:
     import torchvision
-    binaries += collect_dynamic_libs('torchvision')
+    binaries += collect_dynamic_libs('torchvision') 
     hiddenimports += collect_submodules('torchvision')
 except:
     pass
