@@ -1,82 +1,58 @@
 """
-Vercel Serverless Function Wrapper for Wheatgrass Analyzer
-This allows your exact Flask app to run on Vercel
+api/index.py - Vercel Serverless Function
+MAKE SURE THIS FILE IS IN /api/ folder!
 """
 
-import sys
 import os
+import sys
 
-# Add the parent directory to the path so we can import app.py
+# Add parent directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Set Vercel environment
+os.environ['VERCEL'] = '1'
 
 # Import your Flask app
 from app import app
 
-# Vercel serverless function handler
+# Vercel requires this exact function name
 def handler(request, context):
     """
-    AWS Lambda/API Gateway handler for Vercel
+    Vercel Serverless Function Handler
     """
-    from flask import make_response
-    import io
-    import base64
+    # Import Flask's request here to avoid circular imports
+    from flask import Request
+    from werkzeug.datastructures import Headers
     
-    # Parse the request
-    method = request['requestContext']['http']['method']
-    path = request['rawPath']
-    headers = request.get('headers', {})
-    query_params = request.get('queryStringParameters', {})
+    # Create a Flask request from Vercel's request
+    method = request.get('httpMethod', 'GET')
+    headers = Headers(request.get('headers', {}))
     
-    # Handle multipart form data (file uploads)
-    if method == 'POST' and 'content-type' in headers:
-        content_type = headers['content-type']
-        if 'multipart/form-data' in content_type:
-
-            body = base64.b64decode(request.get('body', ''))
-            environ = {
-                'REQUEST_METHOD': 'POST',
-                'CONTENT_TYPE': content_type,
-                'CONTENT_LENGTH': str(len(body)),
-                'wsgi.input': io.BytesIO(body),
-            }
-            
-            with app.app_context():
-                from werkzeug.datastructures import ImmutableMultiDict
-                from werkzeug.formparser import FormDataParser
-                
-                parser = FormDataParser()
-                stream, form, files = parser.parse(environ['wsgi.input'], environ['CONTENT_TYPE'], environ['CONTENT_LENGTH'], {})
-                
-                # Create request context
-                with app.test_request_context(
-                    path=path,
-                    method=method,
-                    headers=headers,
-                    data=form,
-                    files=files
-                ):
-                    response = app.full_dispatch_request()
-                    return {
-                        'statusCode': response.status_code,
-                        'headers': dict(response.headers),
-                        'body': response.get_data(as_text=True)
-                    }
+    # Create request body
+    body = request.get('body', '')
+    if request.get('isBase64Encoded', False):
+        import base64
+        body = base64.b64decode(body)
     
-    # Handle regular requests
+    # Create Flask request
     with app.test_request_context(
-        path=path,
+        path=request.get('path', '/'),
         method=method,
         headers=headers,
-        query_string=query_params
+        data=body,
+        query_string=request.get('queryStringParameters', {})
     ):
+        # Process the request
         response = app.full_dispatch_request()
+        
+        # Convert to Vercel format
         return {
             'statusCode': response.status_code,
             'headers': dict(response.headers),
-            'body': response.get_data(as_text=True)
+            'body': response.get_data(as_text=True),
+            'isBase64Encoded': False
         }
 
-# Alternative: Direct WSGI handler for simpler setup
-if __name__ == "__main__":
-    # Local development
-    app.run(debug=True, host='0.0.0.0', port=5000)
+# Optional: For local testing
+if __name__ == '__main__':
+    print("✅ Vercel handler ready")
