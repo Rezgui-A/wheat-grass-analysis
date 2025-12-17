@@ -71,6 +71,46 @@ SAM_MODEL_PATH = "sam_vit_b_01ec64.pth" if SAM_AVAILABLE else None
 SAM_MODEL_TYPE = "vit_b"
 SAM_PREDICTOR = None
 
+def get_sam_model_path():
+    """Get SAM model path - Vercel compatible"""
+    # Default local path
+    local_path = "sam_vit_b_01ec64.pth"
+    
+    # Check if we're on Vercel
+    if os.environ.get('VERCEL') == '1':
+        # On Vercel, try to find model in /tmp
+        tmp_path = "/tmp/sam_models/sam_vit_b_01ec64.pth"
+        
+        # If model doesn't exist in /tmp, download it
+        if not os.path.exists(tmp_path):
+            print("⚠️ Vercel: SAM model not found, trying to download...")
+            
+            # Try to import downloader
+            try:
+                from sam_download import get_sam_model_path as download_sam
+                downloaded_path = download_sam("vit_b")
+                if downloaded_path:
+                    return downloaded_path
+            except ImportError:
+                print("⚠️ SAM downloader not available")
+        
+        # Check if model exists in /tmp
+        if os.path.exists(tmp_path):
+            print(f"✅ Vercel: Using SAM model from /tmp: {tmp_path}")
+            return tmp_path
+        
+        print("⚠️ Vercel: SAM model not available, using traditional methods")
+        return None
+    
+    # Local development - use local file
+    if os.path.exists(local_path):
+        print(f"✅ Local: Using SAM model: {local_path}")
+        return local_path
+    
+    print("⚠️ Local: SAM model not found")
+    return None
+
+# Update your initialize_sam() function - ONLY CHANGE THESE LINES:
 def initialize_sam():
     """Initialize SAM model if available"""
     global SAM_PREDICTOR
@@ -79,12 +119,19 @@ def initialize_sam():
         return False
     
     try:
-        if not os.path.exists(SAM_MODEL_PATH):
+        # Use the Vercel-compatible function
+        SAM_MODEL_PATH = get_sam_model_path()
+        
+        if not SAM_MODEL_PATH or not os.path.exists(SAM_MODEL_PATH):
+            print(f"⚠️ SAM model not found at {SAM_MODEL_PATH}")
             return False
         
-        print(f"🔍 Loading SAM model...")
-        sam = sam_model_registry[SAM_MODEL_TYPE](checkpoint=SAM_MODEL_PATH)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"🔍 Loading SAM model from: {SAM_MODEL_PATH}")
+        
+        # On Vercel, always use CPU
+        device = "cpu" if os.environ.get('VERCEL') == '1' else ("cuda" if torch.cuda.is_available() else "cpu")
+        
+        sam = sam_model_registry["vit_b"](checkpoint=SAM_MODEL_PATH)
         sam.to(device=device)
         SAM_PREDICTOR = SamPredictor(sam)
         print(f"✅ SAM loaded on {device}")
@@ -92,6 +139,8 @@ def initialize_sam():
         
     except Exception as e:
         print(f"⚠️ SAM initialization failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # Modified: Load image from bytes instead of file path
