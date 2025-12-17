@@ -1,4 +1,4 @@
-# Core dependencies for Wheatgrass Analyzer (Vercel Compatible)
+# Core dependencies for Wheatgrass Analyzer
 Flask==2.3.3
 Werkzeug==2.3.7
 
@@ -11,12 +11,12 @@ Pillow==10.1.0
 scipy==1.11.4
 matplotlib==3.7.4
 
-# IMPORTANT: Use CPU-only PyTorch WITHOUT --index-url flag
+# PyTorch with CPU-only version (compatible with Python 3.11)
 torch==2.1.0
 torchvision==0.16.0
 
-# Optional: SAM model - REMOVE if causing memory issues on Hobby plan
-segment-anything==1.0
+# IMPORTANT: SAM model - COMMENT OUT if memory issues
+# segment-anything==1.0
 
 # Additional utilities
 requests==2.31.0
