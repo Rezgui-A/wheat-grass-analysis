@@ -2,7 +2,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
-      "memory": 3008,
+      "memory": 1769,
       "includeFiles": "templates/**"
     }
   },
