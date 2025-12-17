@@ -1,14 +1,21 @@
 {
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30,
+      "memory": 1769,
+      "excludeFiles": [
+        "sam_vit_h_4b8939.pth",
+        "static/**",
+        "**/*.jpg",
+        "**/*.png",
+        "wheatgrass_analysis_results/**"
+      ]
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/api/index.py"
+      "source": "/(.*)",
+      "destination": "/api/index.py"
     }
   ]
 }
