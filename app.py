@@ -4,24 +4,27 @@ Converts desktop app to web interface - ALL FUNCTIONALITY PRESERVED
 """
 
 # Vercel detection
-IS_VERCEL = os.environ.get('VERCEL') == '1'
 
-if IS_VERCEL:
-    # Use /tmp for uploads on Vercel
+import os
+IS_RENDER = 'RENDER' in os.environ  # Add this line to detect the Render environment
+
+app = Flask(__name__)
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
+SECRET_KEY = 'wheatgrass-secret-key-change-in-production'
+
+# UPLOAD PATH HANDLING FOR RENDER
+if IS_RENDER:
+    # On Render, use /tmp for uploads (ephemeral storage)
     UPLOAD_FOLDER = '/tmp/uploads'
     RESULTS_FOLDER = '/tmp/results'
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
 else:
     # Local development
     UPLOAD_FOLDER = 'static/uploads'
     RESULTS_FOLDER = 'wheatgrass_analysis_results'
 
-# Then in your Flask app config section, replace:
-# app.config['UPLOAD_FOLDER'] = 'static/uploads'
-# app.config['RESULTS_FOLDER'] = 'wheatgrass_analysis_results'
-# With:
-
+# Ensure directories exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESULTS_FOLDER, exist_ok=True)
 import os
 import sys
 import io
@@ -42,6 +45,11 @@ warnings.filterwarnings('ignore')
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from werkzeug.utils import secure_filename
 
+
+# Then in your Flask app config section, replace:
+# app.config['UPLOAD_FOLDER'] = 'static/uploads'
+# app.config['RESULTS_FOLDER'] = 'wheatgrass_analysis_results'
+# With:
 # Import SAM (optional)
 try:
     from segment_anything import sam_model_registry, SamPredictor
@@ -77,22 +85,21 @@ def get_sam_model_path():
     local_path = "sam_vit_b_01ec64.pth"
     
     # Check if we're on Vercel
-    if os.environ.get('VERCEL') == '1':
-        # On Vercel, try to find model in /tmp
-        tmp_path = "/tmp/sam_models/sam_vit_b_01ec64.pth"
+    # On Vercel, try to find model in /tmp
+    tmp_path = "/tmp/sam_models/sam_vit_b_01ec64.pth"
+    
+    # If model doesn't exist in /tmp, download it
+    if not os.path.exists(tmp_path):
+        print("⚠️ Vercel: SAM model not found, trying to download...")
         
-        # If model doesn't exist in /tmp, download it
-        if not os.path.exists(tmp_path):
-            print("⚠️ Vercel: SAM model not found, trying to download...")
-            
-            # Try to import downloader
-            try:
-                from sam_download import get_sam_model_path as download_sam
-                downloaded_path = download_sam("vit_b")
-                if downloaded_path:
-                    return downloaded_path
-            except ImportError:
-                print("⚠️ SAM downloader not available")
+        # Try to import downloader
+        try:
+            from sam_download import get_sam_model_path as download_sam
+            downloaded_path = download_sam("vit_b")
+            if downloaded_path:
+                return downloaded_path
+        except ImportError:
+            print("⚠️ SAM downloader not available")
         
         # Check if model exists in /tmp
         if os.path.exists(tmp_path):
