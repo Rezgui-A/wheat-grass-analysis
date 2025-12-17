@@ -1,15 +1,18 @@
 Flask==2.3.3
 Werkzeug==2.3.7
-numpy==1.26.4
-opencv-python-headless==4.9.0.80
-Pillow==10.2.0
-scipy==1.13.0
-matplotlib==3.8.3
-requests==2.31.0
+numpy==1.24.3
+opencv-python-headless==4.8.1.78
+matplotlib==3.7.2
+scipy==1.11.2
+Pillow==10.0.0
+gunicorn==21.2.0
 
-# PyTorch for Python 3.12 - CRITICAL: Use these exact lines
-torch==2.2.2
-torchvision==0.17.2
+# Use CPU-only PyTorch for Render (much smaller, faster to install)
+torch==2.0.1+cpu --index-url https://download.pytorch.org/whl/cpu
+torchvision==0.15.2+cpu --index-url https://download.pytorch.org/whl/cpu
 
-# IMPORTANT: Comment out or remove segment-anything
-# segment-anything==1.0
+# SAM - use the PyPI version (not GitHub)
+segment-anything-py==1.0.1
+
+# Other dependencies that might help
+onnxruntime==1.15.1
