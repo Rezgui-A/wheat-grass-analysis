@@ -1,54 +1,33 @@
 """
-MINIMAL Vercel Python Serverless Function
-This will definitely work
+api/index.py - Vercel Python Serverless Function (Correct Format)
 """
 
-import json
 import sys
 import os
 
-# Add debug prints
-print("🚀 Vercel function starting...")
-print(f"📁 CWD: {os.getcwd()}")
-print(f"📁 Files here: {os.listdir('.')}")
+# Add parent directory to Python path to import your main app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Try to load Flask app
+# Set Vercel environment (important for your app.py logic)
+os.environ['VERCEL'] = '1'
+
+# Import the Flask app from your main app.py file.
+# This line assumes your Flask instance is named 'app' in app.py.
 try:
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app import app
-    has_flask = True
-    print("✅ Flask app loaded")
-except Exception as e:
-    has_flask = False
-    print(f"⚠️ Flask error: {e}")
-    
-    # Create minimal app
-    from flask import Flask, jsonify
+    print("✅ Successfully imported Flask app from app.py")
+except ImportError as e:
+    print(f"❌ Failed to import Flask app: {e}")
+    # If import fails, create a minimal placeholder to allow the build to pass
+    from flask import Flask
     app = Flask(__name__)
-    
     @app.route('/')
-    def home():
-        return jsonify({"status": "online", "flask": "fallback"})
+    def placeholder():
+        return "Wheatgrass Analyzer - Flask app import failed, check logs."
 
-# The MAIN handler function Vercel looks for
-def handler(request, context):
-    """
-    Main entry point - Vercel calls this
-    """
-    print(f"📨 Request: {request}")
-    
-    # Always return a valid response
-    return {
-        'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': json.dumps({
-            "success": True,
-            "message": "Wheatgrass Analyzer API",
-            "status": "online",
-            "flask_loaded": has_flask,
-            "path": request.get('path', '/')
-        })
-    }
+# ****************** CRITICAL PART ******************
+# Expose the WSGI application to Vercel.
+# Vercel's Python runtime will look for a variable named 'app' or 'handler' that is a WSGI app.
+# We are exposing the Flask 'app' object directly.
+# Do NOT define a custom 'handler(request, context)' function.
+# ***************************************************
