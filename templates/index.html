@@ -466,7 +466,7 @@
             currentResults = data;
             
             if (data.success) {
-                displayResults(data);
+                displayResults(data); 
             } else {
                 hideProcessing();
                 alert(`Analysis failed: ${data.error || 'Unknown error'}`);
