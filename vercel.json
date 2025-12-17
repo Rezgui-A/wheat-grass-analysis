@@ -3,13 +3,7 @@
     "api/index.py": {
       "maxDuration": 30,
       "memory": 1769,
-      "excludeFiles": [
-        "sam_vit_h_4b8939.pth",
-        "static/**",
-        "**/*.jpg",
-        "**/*.png",
-        "wheatgrass_analysis_results/**"
-      ]
+      "excludeFiles": "sam_vit_b_01ec64.pth sam_vit_h_4b8939.pth *.jpg *.png static/** wheatgrass_analysis_results/** __pycache__/**"
     }
   },
   "rewrites": [
