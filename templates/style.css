@@ -1,0 +1,36 @@
+/* Add custom styling if needed */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem 0;
+}
+
+.result-card {
+    transition: transform 0.2s;
+}
+
+.result-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #4a5568;
+}
+
+.stat-label {
+    color: #718096;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.image-preview {
+    border: 2px dashed #cbd5e0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}

@@ -1,4 +1,62 @@
-# main.py - ULTIMATE Automatic Wheatgrass Analysis with Perfect Detection
+# ===== WORKING PYTORCH DLL FIX =====
+import os
+import sys
+
+# Fix for PyInstaller bundled executables
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable
+    base_path = sys._MEIPASS
+    
+    # Get the torch/lib directory
+    torch_lib = os.path.join(base_path, 'torch', 'lib')
+    
+    # DEBUG: Check what's in the directory
+    if os.path.exists(torch_lib):
+        dlls = [f for f in os.listdir(torch_lib) if f.endswith('.dll')]
+        print(f"Found {len(dlls)} DLLs in torch/lib:")
+        for dll in sorted(dlls)[:5]:  # Show first 5
+            print(f"  - {dll}")
+        if len(dlls) > 5:
+            print(f"  ... and {len(dlls)-5} more")
+    
+    # CRITICAL: Monkey-patch torch's DLL loading
+    import builtins
+    
+    original_import = builtins.__import__
+    
+    def patched_import(name, *args, **kwargs):
+        # Import torch normally
+        module = original_import(name, *args, **kwargs)
+        
+        # Patch torch to skip DLL loading
+        if name == 'torch':
+            # Check if DLL loading function exists
+            if hasattr(module, '_load_dll_libraries'):
+                # Replace with a dummy function that does nothing
+                def dummy_load_dll():
+                    print("✓ Skipped PyTorch DLL loading (PyInstaller workaround)")
+                    return
+                module._load_dll_libraries = dummy_load_dll
+            
+            # Also patch the error handler
+            if hasattr(module, '_load_global_deps'):
+                def dummy_load_global_deps():
+                    print("✓ Skipped global deps loading")
+                    return
+                module._load_global_deps = dummy_load_global_deps
+        
+        return module
+    
+    # Apply the patch BEFORE importing torch
+    builtins.__import__ = patched_import
+    
+    # Now update PATH for other DLLs
+    if os.path.exists(torch_lib):
+        os.add_dll_directory(torch_lib)
+        os.environ['PATH'] = torch_lib + ';' + os.environ['PATH']
+        print(f"✓ Added torch/lib to DLL search path")
+# ===== END DLL FIX =====
+# Continue with your imports...
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -450,9 +508,9 @@ def detect_soil_line_ultimate(image, beaker_region):
     print(f"   Soil line at y = {soil_line_y}")
     print(f"   From beaker bottom: {soil_height_from_bottom_px} px")
     print(f"   Percentage from bottom: {soil_percentage_from_bottom:.1f}%")
-    print(f"   Actual height from bottom: {soil_height_from_bottom_cm:.1f} cm")
+    print(f"   Actual height from bottom: {soil_height_from_bottom_cm:.3f} cm")
     print(f"   Target: Bottom 10-20% of beaker ✓")
-    print(f"   Pixel ratio: {pixel_to_cm_ratio:.4f} cm/px")
+    print(f"   Pixel ratio: {pixel_to_cm_ratio:.6f} cm/px")
     print(f"   Beaker actual height: 18.034 cm = 7.1 inches")
     
     # Additional debug info
@@ -460,6 +518,7 @@ def detect_soil_line_ultimate(image, beaker_region):
     print(f"   Soil mask pixels: {np.sum(soil_mask_binary > 0)}")
     
     return soil_line_y, pixel_to_cm_ratio
+
 def detect_plants_ultimate(image, beaker_region, soil_line_y):
     """
     ULTIMATE plant detection - detects ALL plant colors properly
@@ -684,7 +743,7 @@ def detect_plants_ultimate(image, beaker_region, soil_line_y):
     
     print(f"✅ ULTIMATE PLANT DETECTION COMPLETE")
     print(f"   Plant pixels: {plant_pixel_count:,}")
-    print(f"   Plant area: {plant_area_percentage:.1f}% of region")
+    print(f"   Plant area: {plant_area_percentage:.3f}% of region")
     print(f"   Detection region: y={plant_top} to {plant_bottom}")
     print(f"   Width: {x_end-x_start} px")
     print(f"   Color ranges: Dark green ✓ Light green ✓ Yellow-green ✓ Light brown ✓")
@@ -700,11 +759,12 @@ def detect_plants_ultimate(image, beaker_region, soil_line_y):
         yellow_green_count = np.sum((hues >= 25) & (hues < 35))
         brown_count = np.sum((hues >= 10) & (hues < 25))
         
-        print(f"   Color distribution: Green={green_count/len(hues)*100:.1f}%, " +
-              f"Yellow-green={yellow_green_count/len(hues)*100:.1f}%, " +
-              f"Brown={brown_count/len(hues)*100:.1f}%")
+        print(f"   Color distribution: Green={green_count/len(hues)*100:.3f}%, " +
+              f"Yellow-green={yellow_green_count/len(hues)*100:.3f}%, " +
+              f"Brown={brown_count/len(hues)*100:.3f}%")
     
     return full_mask.astype(bool)
+
 def extract_canopy_boundary_ultimate(plant_mask, soil_line_y, beaker_region):
     """
     Canopy boundary extraction - plants above soil only
@@ -788,6 +848,7 @@ def extract_canopy_boundary_ultimate(plant_mask, soil_line_y, beaker_region):
     print(f"✅ Canopy boundary: {len(x_vals)} points")
     
     return x_vals, y_vals
+
 def calculate_plant_health_ultimate(image, plant_mask):
     """
     Ultimate plant health calculation
@@ -881,18 +942,28 @@ def analyze_wheatgrass_ultimate(image_path):
         
         # 6. STATISTICS
         avg_height_cm = np.mean(heights_cm)
-        max_height_cm = np.max(heights_cm)
-        min_height_cm = np.min(heights_cm)
-        std_height_cm = np.std(heights_cm)
-        median_height_cm = np.median(heights_cm)
         avg_height_inch = avg_height_cm / 2.54
+        max_height_cm = np.max(heights_cm)
+        max_height_inch = max_height_cm / 2.54
+        min_height_cm = np.min(heights_cm)
+        min_height_inch = min_height_cm / 2.54
+        std_height_cm = np.std(heights_cm)
+        std_height_inch = std_height_cm / 2.54
+        median_height_cm = np.median(heights_cm)
+        median_height_inch = median_height_cm / 2.54
+        
+        # Calculate soil height in cm and inches
+        y_start, y_end = beaker_region[2], beaker_region[3]
+        soil_height_px = y_end - soil_line_y
+        soil_height_cm = soil_height_px * pixel_ratio
+        soil_height_inch = soil_height_cm / 2.54
         
         # 7. PLANT HEALTH
         health_score, greenness_score, colorfulness_score = calculate_plant_health_ultimate(image, plant_mask)
         
         elapsed_time = time.time() - start_time
         
-        print(f"\n✅ ULTIMATE ANALYSIS COMPLETED in {elapsed_time:.1f} seconds")
+        print(f"\n✅ ULTIMATE ANALYSIS COMPLETED in {elapsed_time:.3f} seconds")
         
         # Prepare results
         results = {
@@ -900,29 +971,38 @@ def analyze_wheatgrass_ultimate(image_path):
             'soil_line_y': soil_line_y, 'height_cm': heights_cm,
             'height_inch': heights_inch, 'avg_height_cm': avg_height_cm,
             'avg_height_inch': avg_height_inch, 'max_height_cm': max_height_cm,
-            'min_height_cm': min_height_cm, 'std_height_cm': std_height_cm,
-            'median_height_cm': median_height_cm,
+            'max_height_inch': max_height_inch, 'min_height_cm': min_height_cm,
+            'min_height_inch': min_height_inch, 'std_height_cm': std_height_cm,
+            'std_height_inch': std_height_inch, 'median_height_cm': median_height_cm,
+            'median_height_inch': median_height_inch,
             'health_score': health_score, 'greenness_score': greenness_score,
             'colorfulness_score': colorfulness_score,
             'pixel_ratio': pixel_ratio, 'plant_mask': plant_mask,
             'beaker_region': (x_start, x_end, y_start, y_end),
-            'plant_pixels': np.sum(plant_mask)
+            'plant_pixels': np.sum(plant_mask),
+            'soil_height_cm': soil_height_cm,
+            'soil_height_inch': soil_height_inch
         }
         
-        # Display results
+        # Display results with 3 decimal places
         print(f"\n📊 ULTIMATE RESULTS:")
-        print(f"  Average Height: {avg_height_cm:.2f} cm ({avg_height_inch:.2f} in)")
-        print(f"  Height Range: {min_height_cm:.2f} to {max_height_cm:.2f} cm")
-        print(f"  Standard Deviation: {std_height_cm:.2f} cm")
+        print(f"  Average Height: {avg_height_cm:.3f} cm ({avg_height_inch:.3f} in)")
+        print(f"  Max Height: {max_height_cm:.3f} cm ({max_height_inch:.3f} in)")
+        print(f"  Min Height: {min_height_cm:.3f} cm ({min_height_inch:.3f} in)")
+        print(f"  Median Height: {median_height_cm:.3f} cm ({median_height_inch:.3f} in)")
+        print(f"  Height Range: {min_height_cm:.3f} to {max_height_cm:.3f} cm")
+        print(f"  Standard Deviation: {std_height_cm:.3f} cm ({std_height_inch:.3f} in)")
         print(f"  Plant Health Score: {health_score:.3f}/1.0")
         print(f"  Plants Detected: {np.sum(plant_mask):,} pixels")
         print(f"  Canopy Points: {len(canopy_x)} (zigzag pattern ✓)")
         print(f"  Soil Line: y={soil_line_y} px (darkest brown inside beaker ✓)")
+        print(f"  Soil Height: {soil_height_cm:.3f} cm ({soil_height_inch:.3f} in)")
         print(f"  Beaker: {x_end-x_start}x{y_end-y_start} px (+15% height for plants above ✓)")
+        print(f"  Pixel Ratio: {pixel_ratio:.6f} cm/px")
         
         # Create visualization
         create_ultimate_visualization(image, plant_mask, canopy_x, canopy_y, soil_line_y,
-                                     (x_start, x_end, y_start, y_end), heights_cm, 
+                                     (x_start, x_end, y_start, y_end), heights_cm, heights_inch,
                                      results, os.path.basename(image_path))
         
         return results
@@ -934,50 +1014,44 @@ def analyze_wheatgrass_ultimate(image_path):
         return None
 
 def create_ultimate_visualization(image, plant_mask, canopy_x, canopy_y, soil_line_y,
-                                 beaker_region, heights_cm, results, image_name):
+                                 beaker_region, heights_cm, heights_inch, results, image_name):
     """
-    Create ultimate visualization
+    Create ultimate visualization with inches and reduced text
     """
-    fig, axes = plt.subplots(2, 3, figsize=(22, 16))
+    # Create figure with dynamic sizing for resolution compatibility
+    fig = plt.figure(figsize=(20, 12))
     
-    fig.suptitle(f'ULTIMATE Wheatgrass Analysis - {image_name}\n'
-                f'Perfect Automatic Detection with Enhanced Accuracy', 
-                fontsize=20, fontweight='bold', y=0.98)
+    # Use GridSpec for better layout control
+    gs = plt.GridSpec(2, 3, figure=fig, hspace=0.25, wspace=0.2)
+    
+    fig.suptitle(f'Wheatgrass Analysis - {image_name}', 
+                fontsize=18, fontweight='bold', y=0.98)
     
     h, w = image.shape[:2]
     x_start, x_end, y_start, y_end = beaker_region
     
-    # Plot 1: Ultimate Detection Overview
-    axes[0, 0].imshow(image)
+    # Plot 1: Detection Overview
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax1.imshow(image)
     
     # Beaker rectangle
     rect = plt.Rectangle((x_start, y_start), x_end-x_start, y_end-y_start,
-                        fill=False, edgecolor='yellow', linewidth=3, 
-                        label='Beaker (+15% height for tall plants)')
-    axes[0, 0].add_patch(rect)
+                        fill=False, edgecolor='yellow', linewidth=2)
+    ax1.add_patch(rect)
     
-    # Soil line (inside beaker)
-    axes[0, 0].axhline(y=soil_line_y, color='#5C4033', linewidth=4, 
-                      label='Soil Line (Darkest brown inside beaker)', alpha=0.9, linestyle='-')
+    # Soil line
+    ax1.axhline(y=soil_line_y, color='brown', linewidth=3, alpha=0.8)
     
-    # Soil region shading (inside beaker only)
-    soil_rect = plt.Rectangle((x_start, soil_line_y), x_end-x_start, y_end-soil_line_y,
-                             fill=True, alpha=0.15, color='brown', label='Soil Region')
-    axes[0, 0].add_patch(soil_rect)
-    
-    # Canopy line (zigzag following plant tops only)
+    # Canopy line
     if len(canopy_x) > 0:
-        axes[0, 0].plot(canopy_x, canopy_y, 'r-', linewidth=3, alpha=0.9, 
-                       label='Canopy (Zigzag following plant tops)')
-        # Plant area shading
-        axes[0, 0].fill_between(canopy_x, canopy_y, soil_line_y, alpha=0.2, 
-                               color='green', label='Plant Area')
+        ax1.plot(canopy_x, canopy_y, 'r-', linewidth=2, alpha=0.8)
+        ax1.fill_between(canopy_x, canopy_y, soil_line_y, alpha=0.15, color='green')
     
-    axes[0, 0].set_title('1. ULTIMATE Detection Overview', fontsize=16, fontweight='bold')
-    axes[0, 0].legend(loc='upper right', fontsize=8)
-    axes[0, 0].axis('off')
+    ax1.set_title('Detection Overview', fontsize=14)
+    ax1.axis('off')
     
-    # Plot 2: Plant Health Visualization with Soil Distinction
+    # Plot 2: Plant Health
+    ax2 = fig.add_subplot(gs[0, 1])
     health_image = np.zeros_like(image)
     plant_indices = np.where(plant_mask)
     
@@ -987,152 +1061,137 @@ def create_ultimate_visualization(image, plant_mask, canopy_x, canopy_y, soil_li
         hue = hsv_pixels[:, 0]
         value = hsv_pixels[:, 2]
         
-        # Color code by health (distinguishing plants from soil)
         for i in range(len(plant_indices[0])):
             y, x = plant_indices[0][i], plant_indices[1][i]
             h_val = hue[i] if i < len(hue) else 0
             v_val = value[i] if i < len(value) else 0
             
-            # Plants are green/yellow/light brown, NOT dark brown
-            if 35 <= h_val <= 85 and v_val > 40:  # Healthy green (not dark)
+            if 35 <= h_val <= 85 and v_val > 40:
                 health_image[y, x] = [0, 200, 0]
-            elif 25 <= h_val < 35 and v_val > 40:  # Mature yellow-green
+            elif 25 <= h_val < 35 and v_val > 40:
                 health_image[y, x] = [200, 200, 0]
-            elif 85 < h_val <= 100 and v_val > 40:  # Fresh light green
+            elif 85 < h_val <= 100 and v_val > 40:
                 health_image[y, x] = [150, 255, 150]
-            elif 15 <= h_val < 25 and v_val > 50:  # Light brown (drying)
-                health_image[y, x] = [205, 133, 63]  # Light brown
-            else:  # Dark areas (likely not plants)
+            elif 15 <= h_val < 25 and v_val > 50:
+                health_image[y, x] = [205, 133, 63]
+            else:
                 health_image[y, x] = [100, 100, 100]
     
     blended = cv2.addWeighted(image, 0.25, health_image, 0.75, 0)
-    axes[0, 1].imshow(blended)
-    axes[0, 1].axhline(y=soil_line_y, color='#5C4033', linewidth=3, linestyle='--', label='Soil Line')
+    ax2.imshow(blended)
+    ax2.axhline(y=soil_line_y, color='brown', linewidth=2, linestyle='--')
     if len(canopy_x) > 0:
-        axes[0, 1].plot(canopy_x, canopy_y, 'r-', linewidth=2, alpha=0.8)
-    axes[0, 1].set_title('2. Plant Health (Excludes Dark Soil Colors)', 
-                        fontsize=16, fontweight='bold')
-    axes[0, 1].axis('off')
+        ax2.plot(canopy_x, canopy_y, 'r-', linewidth=2, alpha=0.8)
+    ax2.set_title('Plant Health', fontsize=14)
+    ax2.axis('off')
     
-    # Plot 3: Height Profile with Plant Variations
-    if len(heights_cm) > 0:
-        x_pos = np.arange(len(heights_cm))
-        axes[0, 2].plot(x_pos, heights_cm, 'g-', linewidth=3, alpha=0.8, label='Height Profile')
+    # Plot 3: Height Profile (in inches)
+    ax3 = fig.add_subplot(gs[0, 2])
+    if len(heights_inch) > 0:
+        x_pos = np.arange(len(heights_inch))
+        ax3.plot(x_pos, heights_inch, 'g-', linewidth=2, alpha=0.8)
+        ax3.fill_between(x_pos, 
+                        heights_inch - results['std_height_inch']/2,
+                        heights_inch + results['std_height_inch']/2,
+                        alpha=0.15, color='green')
         
-        # Show natural variations (zigzag)
-        axes[0, 2].fill_between(x_pos, 
-                               heights_cm - results['std_height_cm']/2,
-                               heights_cm + results['std_height_cm']/2,
-                               alpha=0.15, color='green', label='Natural Variation')
+        ax3.axhline(y=results['avg_height_inch'], color='red', linestyle='--',
+                   linewidth=2, label=f'Avg: {results["avg_height_inch"]:.3f} in')
+        ax3.axhline(y=results['median_height_inch'], color='blue', linestyle=':',
+                   linewidth=2, label=f'Med: {results["median_height_inch"]:.3f} in')
         
-        axes[0, 2].axhline(y=results['avg_height_cm'], color='red', linestyle='--',
-                          linewidth=3, label=f'Avg: {results["avg_height_cm"]:.2f} cm')
-        axes[0, 2].axhline(y=results['median_height_cm'], color='blue', linestyle=':',
-                          linewidth=3, label=f'Med: {results["median_height_cm"]:.2f} cm')
-        
-        axes[0, 2].set_title('3. Height Profile (Natural Plant Variations)', 
-                            fontsize=16, fontweight='bold')
-        axes[0, 2].set_xlabel('Position along canopy (px)', fontsize=12)
-        axes[0, 2].set_ylabel('Height (cm)', fontsize=12)
-        axes[0, 2].legend(fontsize=10)
-        axes[0, 2].grid(True, alpha=0.3)
+        ax3.set_title('Height Profile (inches)', fontsize=14)
+        ax3.set_xlabel('Position')
+        ax3.set_ylabel('Height (in)')
+        ax3.legend(fontsize=9)
+        ax3.grid(True, alpha=0.3)
+        ax3.tick_params(axis='both', labelsize=10)
     
-    # Plot 4: Plant Detection Mask (Excluding Beaker Edges)
-    axes[1, 0].imshow(plant_mask, cmap='Greens')
-    axes[1, 0].axhline(y=soil_line_y, color='#5C4033', linewidth=3, linestyle='--', label='Soil Line')
-    
-    # Show beaker boundaries (but plants shouldn't be at edges)
-    axes[1, 0].axvline(x=x_start, color='yellow', linewidth=1, linestyle='--', alpha=0.5)
-    axes[1, 0].axvline(x=x_end, color='yellow', linewidth=1, linestyle='--', alpha=0.5)
-    
+    # Plot 4: Plant Mask
+    ax4 = fig.add_subplot(gs[1, 0])
+    ax4.imshow(plant_mask, cmap='Greens')
+    ax4.axhline(y=soil_line_y, color='brown', linewidth=2, linestyle='--')
     if len(canopy_x) > 0:
-        axes[1, 0].plot(canopy_x, canopy_y, 'r-', linewidth=2, alpha=0.8, label='Canopy Boundary')
+        ax4.plot(canopy_x, canopy_y, 'r-', linewidth=2, alpha=0.8)
+    ax4.set_title('Plant Mask', fontsize=14)
+    ax4.axis('off')
     
-    axes[1, 0].set_title('4. Plant Mask (No Edge Detection)', 
-                        fontsize=16, fontweight='bold')
-    axes[1, 0].legend(loc='upper right', fontsize=8)
-    axes[1, 0].axis('off')
-    
-    # Plot 5: Height Distribution with Soil Reference
-    if len(heights_cm) > 0:
-        n_bins = min(20, len(heights_cm) // 5)
-        axes[1, 1].hist(heights_cm, bins=n_bins, color='lightgreen', alpha=0.8,
-                       edgecolor='darkgreen', linewidth=0.5, density=True)
+    # Plot 5: Height Distribution (in inches)
+    ax5 = fig.add_subplot(gs[1, 1])
+    if len(heights_inch) > 0:
+        n_bins = min(15, len(heights_inch) // 5)
+        ax5.hist(heights_inch, bins=n_bins, color='lightgreen', alpha=0.8,
+                edgecolor='darkgreen', linewidth=0.5, density=True)
         
-        axes[1, 1].axvline(results['avg_height_cm'], color='red', linestyle='--',
-                          linewidth=3, label=f'Average: {results["avg_height_cm"]:.2f} cm')
-        axes[1, 1].axvline(results['median_height_cm'], color='blue', linestyle=':',
-                          linewidth=3, label=f'Median: {results["median_height_cm"]:.2f} cm')
+        ax5.axvline(results['avg_height_inch'], color='red', linestyle='--',
+                   linewidth=2, label=f'Avg: {results["avg_height_inch"]:.3f} in')
+        ax5.axvline(results['median_height_inch'], color='blue', linestyle=':',
+                   linewidth=2, label=f'Med: {results["median_height_inch"]:.3f} in')
         
-        # Add normal distribution curve
-        from scipy.stats import norm
-        x = np.linspace(min(heights_cm), max(heights_cm), 100)
-        y = norm.pdf(x, results['avg_height_cm'], results['std_height_cm'])
-        axes[1, 1].plot(x, y, 'k-', linewidth=2, alpha=0.7, label='Normal Distribution')
-        
-        axes[1, 1].set_title('5. Height Distribution', fontsize=16, fontweight='bold')
-        axes[1, 1].set_xlabel('Height (cm)', fontsize=12)
-        axes[1, 1].set_ylabel('Density', fontsize=12)
-        axes[1, 1].legend(fontsize=10)
-        axes[1, 1].grid(True, alpha=0.3)
+        ax5.set_title('Height Distribution (inches)', fontsize=14)
+        ax5.set_xlabel('Height (in)')
+        ax5.set_ylabel('Density')
+        ax5.legend(fontsize=9)
+        ax5.grid(True, alpha=0.3)
+        ax5.tick_params(axis='both', labelsize=10)
     
-    # Plot 6: ULTIMATE Summary
-    soil_height_cm = (y_end - soil_line_y) * results['pixel_ratio']
+    # Plot 6: Summary Statistics (simplified)
+    ax6 = fig.add_subplot(gs[1, 2])
     
-    stats_text = f"""
-    ╔══════════════════════════════════════════════╗
-    ║        ULTIMATE ANALYSIS SUMMARY             ║
-    ╚══════════════════════════════════════════════╝
+    # Calculate plant density
+    plant_density = (results['plant_pixels'] / ((y_end - y_start) * (x_end - x_start))) * 100
     
-    ┌─ PERFECT DETECTION FEATURES ────────────────
-    │ ✓ Beaker: Automatic (+15% height for plants)
-    │ ✓ Soil: DARKEST brown line inside beaker
-    │ ✓ Plants: Green to light brown (excludes soil)
-    │ ✓ Canopy: Zigzag following plant tops only
-    │ 
-    │ Beaker Dimensions:
-    │ • Width: {x_end-x_start} px
-    │ • Height: {y_end-y_start} px (18.034 cm actual)
-    │ • Pixel Ratio: {results['pixel_ratio']:.4f} cm/px
-    │ • Soil from bottom: {soil_height_cm:.1f} cm (target: 3-7 cm)
+    # Create concise summary with 3 decimal places
+    summary_text = f"""HEIGHT MEASUREMENTS
+━━━━━━━━━━━━━━━━━━━━━
+Average:  {results['avg_height_cm']:.3f} cm
+          {results['avg_height_inch']:.3f} in
+
+Maximum:  {results['max_height_cm']:.3f} cm
+          {results['max_height_inch']:.3f} in
+
+Minimum:  {results['min_height_cm']:.3f} cm
+          {results['min_height_inch']:.3f} in
+
+Median:   {results['median_height_cm']:.3f} cm
+          {results['median_height_inch']:.3f} in
+
+Std Dev:  {results['std_height_cm']:.3f} cm
+          {results['std_height_inch']:.3f} in
+
+━━━━━━━━━━━━━━━━━━━━━
+PLANT ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━
+Health:   {results['health_score']:.3f}
+Greenness:{results['greenness_score']:.3f}
+Pixels:   {results['plant_pixels']:,}
+Density:  {plant_density:.3f}%
+
+━━━━━━━━━━━━━━━━━━━━━
+BEAKER DETECTION
+━━━━━━━━━━━━━━━━━━━━━
+Width:    {x_end-x_start} px
+Height:   {y_end-y_start} px
+Soil:     {y_end-soil_line_y} px
+Soil Ht:  {results['soil_height_cm']:.3f} cm
+          {results['soil_height_inch']:.3f} in
+Ratio:    {results['pixel_ratio']:.6f} cm/px"""
     
-    ├─ HEIGHT STATISTICS ──────────────────────────
-    │ • Average: {results['avg_height_cm']:.2f} cm
-    │            ({results['avg_height_inch']:.2f} inches)
-    │ • Maximum: {results['max_height_cm']:.2f} cm
-    │ • Minimum: {results['min_height_cm']:.2f} cm
-    │ • Median:  {results['median_height_cm']:.2f} cm
-    │ • Std Dev: {results['std_height_cm']:.2f} cm
-    │ • Range:   {max(heights_cm)-min(heights_cm):.2f} cm
-    
-    ├─ PLANT HEALTH & QUALITY ─────────────────────
-    │ • Health Score:    {results['health_score']:.3f}/1.0
-    │ • Greenness:       {results['greenness_score']:.3f}/1.0
-    │ • Colorfulness:    {results['colorfulness_score']:.3f}/1.0
-    │ • Plant Pixels:    {results['plant_pixels']:,}
-    │ • Canopy Points:   {len(canopy_x)}
-    
-    └─ KEY IMPROVEMENTS ───────────────────────────
-       ✓ Canopy: Natural zigzag, excludes beaker edges
-       ✓ Soil: Darkest brown only (3-7cm from bottom)
-       ✓ Plants: Excludes dark brown soil colors
-       ✓ 100% Automatic, no manual intervention
-       ✓ Accurate height measurement from soil line
-    """
-    
-    axes[1, 2].text(0.02, 0.98, stats_text, fontsize=9, family='monospace',
-                   verticalalignment='top', transform=axes[1, 2].transAxes,
-                   bbox=dict(boxstyle="round,pad=0.5", facecolor="lightyellow", 
-                           alpha=0.95, edgecolor='orange', linewidth=2))
-    axes[1, 2].set_title('6. ULTIMATE Analysis Summary', fontsize=16, fontweight='bold')
-    axes[1, 2].axis('off')
+    ax6.text(0.05, 0.95, summary_text, fontsize=10, family='monospace',
+            verticalalignment='top', transform=ax6.transAxes,
+            bbox=dict(boxstyle="round,pad=0.5", facecolor="lightyellow", 
+                    alpha=0.95, edgecolor='orange', linewidth=1))
+    ax6.set_title('Analysis Summary', fontsize=14)
+    ax6.axis('off')
     
     plt.tight_layout()
     
-    # Save the figure
+    # Save the figure with resolution compatibility
     output_dir = "wheatgrass_analysis_results"
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"ultimate_analysis_{os.path.splitext(image_name)[0]}.png")
+    output_path = os.path.join(output_dir, f"analysis_{os.path.splitext(image_name)[0]}.png")
+    
+    # Save with appropriate DPI
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"📊 Visualization saved to: {output_path}")
     
@@ -1142,17 +1201,15 @@ def main():
     """
     Main application function
     """
-    print("\n" + "═" * 70)
-    print("🌾 ULTIMATE AUTOMATIC WHEATGRASS ANALYSIS SYSTEM")
-    print("═" * 70)
-    print("ULTIMATE FEATURES:")
-    print("• 100% AUTOMATIC - no manual selection needed")
-    print("• Canopy: Natural ZIGZAG following plant tops only (no beaker edges)")
-    print("• Soil: Detects DARKEST brown line inside beaker (3-7cm from bottom)")
-    print("• Plants: Distinguishes from soil (excludes dark brown colors)")
-    print("• All measurements in cm and inches")
-    print("• Visualizes natural plant height variations")
-    print("═" * 70)
+    print("\n" + "═" * 60)
+    print("WHEATGRASS ANALYSIS SYSTEM")
+    print("═" * 60)
+    print("Features:")
+    print("• Automatic beaker detection")
+    print("• Soil line detection")
+    print("• Plant health analysis")
+    print("• Height measurements in cm and inches")
+    print("═" * 60)
     
     # Initialize SAM (optional)
     initialize_sam()
@@ -1164,35 +1221,35 @@ def main():
         print("No image selected.")
         return
     
-    print(f"\n📁 Selected: {os.path.basename(image_path)}")
-    print("🤖 Starting ULTIMATE automatic analysis...")
+    print(f"\nSelected: {os.path.basename(image_path)}")
+    print("Starting analysis...")
     
     # Run analysis
     results = analyze_wheatgrass_ultimate(image_path)
     
     if results:
-        print(f"\n✅ ULTIMATE ANALYSIS SUCCESSFUL!")
-        print(f"   Average plant height: {results['avg_height_cm']:.2f} cm")
-        print(f"   Natural canopy zigzag pattern detected ✓")
-        print(f"   Dark soil line accurately identified ✓")
+        print(f"\nANALYSIS SUCCESSFUL!")
+        print(f"Average height: {results['avg_height_cm']:.3f} cm ({results['avg_height_inch']:.3f} in)")
+        print(f"Max height: {results['max_height_cm']:.3f} cm ({results['max_height_inch']:.3f} in)")
+        print(f"Min height: {results['min_height_cm']:.3f} cm ({results['min_height_inch']:.3f} in)")
         
         # Ask for another analysis
         root = tk.Tk()
         root.withdraw()
         another = messagebox.askyesno("Analysis Complete",
-                                    "ULTIMATE analysis completed!\n\n"
-                                    f"• Average Height: {results['avg_height_cm']:.2f} cm\n"
-                                    f"• Max Height: {results['max_height_cm']:.2f} cm\n"
-                                    f"• Plant Health: {results['health_score']:.3f}/1.0\n\n"
+                                    f"Analysis completed!\n\n"
+                                    f"Avg Height: {results['avg_height_cm']:.3f} cm ({results['avg_height_inch']:.3f} in)\n"
+                                    f"Max Height: {results['max_height_cm']:.3f} cm ({results['max_height_inch']:.3f} in)\n"
+                                    f"Min Height: {results['min_height_cm']:.3f} cm ({results['min_height_inch']:.3f} in)\n\n"
                                     "Analyze another image?")
         root.destroy()
         
         if another:
             main()
         else:
-            print("\n✅ Thank you for using ULTIMATE Wheatgrass Analysis!")
+            print("\nThank you for using Wheatgrass Analysis!")
     else:
-        print("\n⚠️ Analysis failed. Please try a different image.")
+        print("\nAnalysis failed. Please try a different image.")
         
         root = tk.Tk()
         root.withdraw()

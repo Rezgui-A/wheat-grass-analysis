@@ -6,3 +6,10 @@ segment-anything>=1.0
 Pillow>=8.0.0
 tqdm>=4.60.0
 requests>=2.25.0
+flask==3.0.0
+werkzeug==3.0.1
+numpy==1.24.3
+torch==2.0.1 --index-url https://download.pytorch.org/whl/cpu
+filelock==3.12.4
+timm==0.9.5
+torchvision==0.15.2
