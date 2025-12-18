@@ -13,7 +13,7 @@ opencv-python-headless==4.10.0.84  # Latest version
 # PyTorch - USE OFFICIAL 3.13 WHEELS
 # PyTorch for Python 3.13 - MUST BE COMPATIBLE
 torch==2.5.1
-
+torchvision==0.20.1+cpu
 # SAM - Use the correct package and compatible version
 segment-anything==1.0
 
