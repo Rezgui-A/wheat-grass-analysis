@@ -16,7 +16,7 @@ torchvision==0.24.1  # Available version for Python 3.13
 # NOTE: PyTorch 2.5 officially supports Python 3.13
 
 # SAM - May need manual installation
-segment-anything-py==1.0.6  # Try this fork
+segment-anything-py==1.0.0  # Try this fork
 
 # Server
 gunicorn==23.0.0
