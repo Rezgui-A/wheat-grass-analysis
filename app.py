@@ -79,42 +79,39 @@ SAM_MODEL_TYPE = "vit_b"
 SAM_PREDICTOR = None
 
 def get_sam_model_path():
-    """Get SAM model path - Vercel compatible"""
-    # Default local path
+    """Get SAM model path with automatic download on Render"""
+    # Priority 1: Check in current directory (for local development)
     local_path = "sam_vit_b_01ec64.pth"
-    
-    # Check if we're on Vercel
-    # On Vercel, try to find model in /tmp
-    tmp_path = "/tmp/sam_models/sam_vit_b_01ec64.pth"
-    
-    # If model doesn't exist in /tmp, download it
-    if not os.path.exists(tmp_path):
-        print("⚠️ Vercel: SAM model not found, trying to download...")
-        
-        # Try to import downloader
-        try:
-            from sam_download import get_sam_model_path as download_sam
-            downloaded_path = download_sam("vit_b")
-            if downloaded_path:
-                return downloaded_path
-        except ImportError:
-            print("⚠️ SAM downloader not available")
-        
-        # Check if model exists in /tmp
-    if os.path.exists(tmp_path):
-        print(f"✅ Vercel: Using SAM model from /tmp: {tmp_path}")
-        return tmp_path
-        
-    
-    
-    # Local development - use local file
     if os.path.exists(local_path):
-        print(f"✅ Local: Using SAM model: {local_path}")
+        print(f"✅ Using SAM model from local directory: {local_path}")
         return local_path
     
-    print("⚠️ Local: SAM model not found")
+    # Priority 2: Check in /tmp (where Render downloads it)
+    tmp_path = "/tmp/sam_vit_b_01ec64.pth"
+    
+    # If on Render and file doesn't exist, try to download it
+    if IS_RENDER and not os.path.exists(tmp_path):
+        print("🌐 Render detected: Attempting to download SAM model...")
+        try:
+            # Import the download function
+            from download_sam_model import download_sam_model
+            if download_sam_model():
+                if os.path.exists(tmp_path):
+                    print(f"✅ SAM model downloaded to: {tmp_path}")
+                    return tmp_path
+            else:
+                print("⚠️ SAM model download failed")
+        except ImportError:
+            print("⚠️ Could not import download_sam_model")
+    
+    # Priority 3: Check if it exists in /tmp
+    if os.path.exists(tmp_path):
+        print(f"✅ Using SAM model from /tmp: {tmp_path}")
+        return tmp_path
+    
+    # No model found
+    print("⚠️ SAM model not found. Using traditional CV methods.")
     return None
-
 # Update your initialize_sam() function - ONLY CHANGE THESE LINES:
 def initialize_sam():
     """Initialize SAM model if available"""
