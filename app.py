@@ -122,41 +122,53 @@ def get_sam_model_path():
     return None
 
 # Update your initialize_sam() function - ONLY CHANGE THESE LINES:
+SAM_PREDICTOR = None
+SAM_LOAD_ATTEMPTED = False  # Add this flag
+
 def initialize_sam():
-    """Initialize SAM model if available"""
-    global SAM_PREDICTOR
+    """Initialize SAM model ONLY when first needed"""
+    global SAM_PREDICTOR, SAM_LOAD_ATTEMPTED
+    
+    if SAM_LOAD_ATTEMPTED:  # Don't try multiple times
+        return SAM_PREDICTOR is not None
     
     if not SAM_AVAILABLE:
-        print("❌ SAM package not available (segment-anything not installed)")
+        print("❌ SAM package not available")
+        SAM_LOAD_ATTEMPTED = True
         return False
     
+    SAM_LOAD_ATTEMPTED = True  # Mark as attempted
+    
     try:
-        # Get model path
-        model_path = get_sam_model_path()
+        print("⚠️ Attempting to load SAM (memory intensive)...")
         
-        if not model_path or not os.path.exists(model_path):
-            print(f"⚠️ SAM model not found at any location")
+        # Use a smaller model if available, or skip
+        model_path = get_sam_model_path()
+        if not model_path:
+            print("❌ No SAM model found, skipping")
             return False
         
-        print(f"🔍 Loading SAM model from: {model_path}")
+        # Force CPU and try to reduce memory
+        import torch
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
         
-        # On Render/Vercel, always use CPU
-        device = "cpu"  # Force CPU on web hosting
+        device = "cpu"
+        print(f"📱 Loading SAM on {device}...")
         
-        print(f"📱 Using device: {device}")
-        
-        # Load the model
         sam = sam_model_registry["vit_b"](checkpoint=model_path)
         sam.to(device=device)
+        
+        # Use float32 instead of float16 for CPU compatibility
+        sam.eval()
+        
         SAM_PREDICTOR = SamPredictor(sam)
-        print(f"✅ SAM loaded successfully on {device}")
+        print("✅ SAM loaded successfully!")
         return True
         
     except Exception as e:
-        print(f"❌ SAM initialization failed: {e}")
-        traceback.print_exc()
+        print(f"❌ SAM load failed (memory limit?): {str(e)[:100]}")
+        SAM_PREDICTOR = None
         return False
-# Modified: Load image from bytes instead of file path
 def load_wheat_image(image_data):
     """Load image from bytes (web version)"""
     # Convert bytes to numpy array
