@@ -1,23 +1,20 @@
 Flask==2.3.3
 Werkzeug==2.3.7
-
-# Computer Vision - use compatible versions
-numpy==1.24.3
-opencv-python-headless==4.8.1.78
-Pillow==10.0.0
-
-# Scientific computing
-scipy==1.11.2
-matplotlib==3.7.2
+numpy==1.26.4  # Keep this - it's compatible with 3.13!
+opencv-python-headless==4.9.0.80  # Keep this
+Pillow==10.2.0  # Keep this
+scipy==1.13.0  # Keep this - 1.13+ works with 3.13
+matplotlib==3.8.3  # Keep this - 3.8+ works with 3.13
 requests==2.31.0
 
-# PyTorch for Python 3.11 - use these EXACT versions
-torch==2.0.1
-torchvision==0.15.2
+# PyTorch for Python 3.13 - MUST USE THESE:
+torch==2.3.0
+torchvision==0.18.0
 
-# SAM - use the compatible version
+# SAM for Python 3.13
 segment-anything==1.0
 
-# Build tools (critical!)
-setuptools==69.0.2
-wheel==0.43.0
+# Build tools - CRITICAL FOR 3.13
+setuptools==80.0.0
+wheel==0.45.0
+gunicorn==21.2.0
