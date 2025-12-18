@@ -16,8 +16,7 @@ def download_sam_model():
     sam_url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
     
     # Target location (Render's /tmp directory persists for the build)
-    target_dir = "/tmp"
-    model_path = os.path.join(target_dir, "sam_vit_b_01ec64.pth")
+    model_path = os.path.join("sam_vit_b_01ec64.pth")
     
     print("🌐 Starting SAM model download...")
     print(f"   URL: {sam_url}")

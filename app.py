@@ -87,7 +87,7 @@ def get_sam_model_path():
         return local_path
     
     # Priority 2: Check in /tmp (where Render downloads it)
-    tmp_path = "/tmp/sam_vit_b_01ec64.pth"
+    tmp_path = "/sam_vit_b_01ec64.pth"
     
     # If on Render and file doesn't exist, try to download it
     if IS_RENDER and not os.path.exists(tmp_path):
