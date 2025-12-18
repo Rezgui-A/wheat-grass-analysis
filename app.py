@@ -5,26 +5,7 @@ Converts desktop app to web interface - ALL FUNCTIONALITY PRESERVED
 
 # Vercel detection
 
-import os
-IS_RENDER = 'RENDER' in os.environ  # Add this line to detect the Render environment
 
-app = Flask(__name__)
-MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
-SECRET_KEY = 'wheatgrass-secret-key-change-in-production'
-
-# UPLOAD PATH HANDLING FOR RENDER
-if IS_RENDER:
-    # On Render, use /tmp for uploads (ephemeral storage)
-    UPLOAD_FOLDER = '/tmp/uploads'
-    RESULTS_FOLDER = '/tmp/results'
-else:
-    # Local development
-    UPLOAD_FOLDER = 'static/uploads'
-    RESULTS_FOLDER = 'wheatgrass_analysis_results'
-
-# Ensure directories exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULTS_FOLDER, exist_ok=True)
 import os
 import sys
 import io
@@ -44,7 +25,25 @@ warnings.filterwarnings('ignore')
 # Flask imports
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from werkzeug.utils import secure_filename
+IS_RENDER = 'RENDER' in os.environ  # Add this line to detect the Render environment
 
+app = Flask(__name__)
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
+SECRET_KEY = 'wheatgrass-secret-key-change-in-production'
+
+# UPLOAD PATH HANDLING FOR RENDER
+if IS_RENDER:
+    # On Render, use /tmp for uploads (ephemeral storage)
+    UPLOAD_FOLDER = '/tmp/uploads'
+    RESULTS_FOLDER = '/tmp/results'
+else:
+    # Local development
+    UPLOAD_FOLDER = 'static/uploads'
+    RESULTS_FOLDER = 'wheatgrass_analysis_results'
+
+# Ensure directories exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
 # Then in your Flask app config section, replace:
 # app.config['UPLOAD_FOLDER'] = 'static/uploads'
@@ -102,12 +101,11 @@ def get_sam_model_path():
             print("⚠️ SAM downloader not available")
         
         # Check if model exists in /tmp
-        if os.path.exists(tmp_path):
-            print(f"✅ Vercel: Using SAM model from /tmp: {tmp_path}")
-            return tmp_path
+    if os.path.exists(tmp_path):
+        print(f"✅ Vercel: Using SAM model from /tmp: {tmp_path}")
+        return tmp_path
         
-        print("⚠️ Vercel: SAM model not available, using traditional methods")
-        return None
+    
     
     # Local development - use local file
     if os.path.exists(local_path):
