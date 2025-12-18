@@ -3,9 +3,6 @@
 Converts desktop app to web interface - ALL FUNCTIONALITY PRESERVED
 """
 
-# Vercel detection
-
-
 import os
 import sys
 import io
@@ -21,15 +18,19 @@ import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 import warnings
 warnings.filterwarnings('ignore')
+import urllib.request
 
 # Flask imports
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from werkzeug.utils import secure_filename
-IS_RENDER = 'RENDER' in os.environ  # Add this line to detect the Render environment
 
+# Environment detection
+IS_RENDER = 'RENDER' in os.environ
+
+# ===== FLASK APP CONFIGURATION =====
 app = Flask(__name__)
-MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
-SECRET_KEY = 'wheatgrass-secret-key-change-in-production'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
+app.config['SECRET_KEY'] = 'wheatgrass-secret-key-change-in-production'
 
 # UPLOAD PATH HANDLING FOR RENDER
 if IS_RENDER:
@@ -45,28 +46,19 @@ else:
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-# Then in your Flask app config section, replace:
-# app.config['UPLOAD_FOLDER'] = 'static/uploads'
-# app.config['RESULTS_FOLDER'] = 'wheatgrass_analysis_results'
-# With:
-# Import SAM (optional)
+# Set folder configs
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
+
+# Import SAM (optional) - MOVED AFTER FLASK APP CREATION
 try:
     from segment_anything import sam_model_registry, SamPredictor
     import torch
     SAM_AVAILABLE = True
-except ImportError:
+    print("✅ SAM package is available")
+except ImportError as e:
     SAM_AVAILABLE = False
-    print("⚠️ SAM not available, using enhanced traditional methods")
-
-# ===== FLASK APP CONFIGURATION =====
-app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
-app.config['SECRET_KEY'] = 'wheatgrass-secret-key-change-in-production'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
-# Ensure directories exist
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['RESULTS_FOLDER'], exist_ok=True)
+    print(f"⚠️ SAM not available: {e}")
 
 # ===== YOUR EXACT CODE (ADAPTED FOR WEB) =====
 
@@ -80,71 +72,90 @@ SAM_PREDICTOR = None
 
 def get_sam_model_path():
     """Get SAM model path with automatic download on Render"""
-    # Priority 1: Check in current directory (for local development)
-    local_path = "sam_vit_b_01ec64.pth"
-    if os.path.exists(local_path):
-        print(f"✅ Using SAM model from local directory: {local_path}")
-        return local_path
+    # Try multiple possible locations
+    possible_paths = [
+        "sam_vit_b_01ec64.pth",  # Current directory
+        "/tmp/sam_vit_b_01ec64.pth",  # Render's /tmp
+        "/app/sam_vit_b_01ec64.pth",  # Render's app directory
+        os.path.join(os.path.dirname(__file__), "sam_vit_b_01ec64.pth")  # App root
+    ]
     
-    # Priority 2: Check in /tmp (where Render downloads it)
-    tmp_path = "/sam_vit_b_01ec64.pth"
+    # First, check if file exists anywhere
+    for path in possible_paths:
+        if os.path.exists(path):
+            print(f"✅ Found SAM model at: {path}")
+            return path
     
-    # If on Render and file doesn't exist, try to download it
-    if IS_RENDER and not os.path.exists(tmp_path):
+    # If not found and on Render, try to download it
+    if IS_RENDER:
         print("🌐 Render detected: Attempting to download SAM model...")
+        model_url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
+        download_path = "/tmp/sam_vit_b_01ec64.pth"
+        
         try:
-            # Import the download function
-            from download_sam_model import download_sam_model
-            if download_sam_model():
-                if os.path.exists(tmp_path):
-                    print(f"✅ SAM model downloaded to: {tmp_path}")
-                    return tmp_path
-            else:
-                print("⚠️ SAM model download failed")
-        except ImportError:
-            print("⚠️ Could not import download_sam_model")
-    
-    # Priority 3: Check if it exists in /tmp
-    if os.path.exists(tmp_path):
-        print(f"✅ Using SAM model from /tmp: {tmp_path}")
-        return tmp_path
+            # Create a simple download function
+            def download_file(url, destination):
+                try:
+                    urllib.request.urlretrieve(url, destination)
+                    print(f"✅ Downloaded to: {destination}")
+                    return True
+                except Exception as e:
+                    print(f"❌ Download failed: {e}")
+                    return False
+            
+            # Try to download
+            if download_file(model_url, download_path):
+                # Verify file size
+                if os.path.exists(download_path):
+                    file_size = os.path.getsize(download_path) / (1024 * 1024)
+                    print(f"📊 Model size: {file_size:.1f} MB")
+                    if file_size > 300:  # Should be ~358MB
+                        return download_path
+                    else:
+                        print("⚠️ Downloaded file is too small, may be incomplete")
+        
+        except Exception as e:
+            print(f"⚠️ Could not download SAM model: {e}")
     
     # No model found
     print("⚠️ SAM model not found. Using traditional CV methods.")
     return None
+
 # Update your initialize_sam() function - ONLY CHANGE THESE LINES:
 def initialize_sam():
     """Initialize SAM model if available"""
     global SAM_PREDICTOR
     
     if not SAM_AVAILABLE:
+        print("❌ SAM package not available (segment-anything not installed)")
         return False
     
     try:
-        # Use the Vercel-compatible function
-        SAM_MODEL_PATH = get_sam_model_path()
+        # Get model path
+        model_path = get_sam_model_path()
         
-        if not SAM_MODEL_PATH or not os.path.exists(SAM_MODEL_PATH):
-            print(f"⚠️ SAM model not found at {SAM_MODEL_PATH}")
+        if not model_path or not os.path.exists(model_path):
+            print(f"⚠️ SAM model not found at any location")
             return False
         
-        print(f"🔍 Loading SAM model from: {SAM_MODEL_PATH}")
+        print(f"🔍 Loading SAM model from: {model_path}")
         
-        # On Vercel, always use CPU
-        device = "cpu" if os.environ.get('VERCEL') == '1' else ("cuda" if torch.cuda.is_available() else "cpu")
+        # On Render/Vercel, always use CPU
+        device = "cpu"  # Force CPU on web hosting
         
-        sam = sam_model_registry["vit_b"](checkpoint=SAM_MODEL_PATH)
+        print(f"📱 Using device: {device}")
+        
+        # Load the model
+        sam = sam_model_registry["vit_b"](checkpoint=model_path)
         sam.to(device=device)
         SAM_PREDICTOR = SamPredictor(sam)
-        print(f"✅ SAM loaded on {device}")
+        print(f"✅ SAM loaded successfully on {device}")
         return True
         
     except Exception as e:
-        print(f"⚠️ SAM initialization failed: {e}")
-        import traceback
+        print(f"❌ SAM initialization failed: {e}")
         traceback.print_exc()
         return False
-
 # Modified: Load image from bytes instead of file path
 def load_wheat_image(image_data):
     """Load image from bytes (web version)"""
