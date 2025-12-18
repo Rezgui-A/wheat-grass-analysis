@@ -12,7 +12,7 @@ opencv-python-headless==4.10.0.84  # Latest version
 
 # PyTorch - USE OFFICIAL 3.13 WHEELS
 torch==2.5.0
-torchvision==0.20.0
+torchvision==0.24.1  # Available version for Python 3.13
 # NOTE: PyTorch 2.5 officially supports Python 3.13
 
 # SAM - May need manual installation
