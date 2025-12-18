@@ -733,8 +733,9 @@ def calculate_plant_health_ultimate(image, plant_mask):
     drying_pct = np.sum(drying) / total_pixels
     fresh_pct = np.sum(fresh) / total_pixels
     
-    health_score = (healthy_pct * 0.9 + mature_pct * 0.7 + fresh_pct * 0.8 + drying_pct * 0.4)
-    health_score = max(0, min(1, health_score))
+    # Apply 1.175 multiplier to health score
+    health_score = (healthy_pct * 0.9 + mature_pct * 0.7 + fresh_pct * 0.8 + drying_pct * 0.4) * 1.175
+    health_score = max(0, min(1.175, health_score))  # Update max to 1.175
     
     greenness_score = np.mean((hue >= 25) & (hue <= 95)) if np.any(hue) else 0
     colorfulness_score = np.mean(saturation) / 255.0 if np.any(saturation) else 0

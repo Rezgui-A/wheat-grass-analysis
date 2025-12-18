@@ -217,7 +217,7 @@
                                                 <i class="fas fa-ruler-combined"></i>
                                             </div>
                                             <h6>Height Measurement</h6>
-                                            <small class="text-muted">Precision to 0.001 cm</small>
+                                            <small class="text-muted">Precision to 0.01 in</small>
                                         </div>
                                     </div>
                                     <div class="col-6">
@@ -360,10 +360,6 @@
                                 <button class="btn btn-outline-success" onclick="downloadCSV()">
                                     <i class="fas fa-file-csv me-2"></i>
                                     Download CSV Report
-                                </button>
-                                <button class="btn btn-outline-info" onclick="downloadImages()">
-                                    <i class="fas fa-images me-2"></i>
-                                    Download All Images
                                 </button>
                                 <button class="btn btn-outline-danger" onclick="startNewAnalysis()">
                                     <i class="fas fa-redo me-2"></i>
@@ -678,116 +674,137 @@
             });
         }
         
-        function displayResults(results) {
-            hideProcessing();
-            
-            // Show results section
-            document.getElementById('resultsSection').classList.remove('d-none');
-            
-            // Scroll to results
-            document.getElementById('resultsSection').scrollIntoView({behavior: 'smooth'});
-            
-            // Update statistics
-            const stats = results.analysis;
-            const statsHtml = `
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.avg_height_cm}</div>
-                        <div class="stat-label">Avg Height (cm)</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.max_height_cm}</div>
-                        <div class="stat-label">Max Height (cm)</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.min_height_cm}</div>
-                        <div class="stat-label">Min Height (cm)</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.health_score.toFixed(2)}</div>
-                        <div class="stat-label">Health Score</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.std_height_cm.toFixed(2)}</div>
-                        <div class="stat-label">Std Dev (cm)</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.plant_pixels.toLocaleString()}</div>
-                        <div class="stat-label">Plant Pixels</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.canopy_points}</div>
-                        <div class="stat-label">Canopy Points</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6 mb-3">
-                    <div class="stat-card">
-                        <div class="stat-value">${stats.processing_time}s</div>
-                        <div class="stat-label">Processing Time</div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('statsContainer').innerHTML = statsHtml;
-            
-            // Update images
-            if (results.images.overview) {
-                document.getElementById('overviewImage').src = `data:image/png;base64,${results.images.overview}`;
-            }
-            if (results.images.plant_mask) {
-                document.getElementById('maskImage').src = `data:image/png;base64,${results.images.plant_mask}`;
-            }
-            if (results.images.plant_health) {
-                document.getElementById('healthImage').src = `data:image/png;base64,${results.images.plant_health}`;
-            }
-            if (results.images.height_profile) {
-                document.getElementById('profileImage').src = `data:image/png;base64,${results.images.height_profile}`;
-            }
-            if (results.images.height_dist) {
-                document.getElementById('distImage').src = `data:image/png;base64,${results.images.height_dist}`;
-            }
-            
-            // Update detailed results
-            const detailedHtml = `
-                <div class="row">
-                    <div class="col-6">
-                        <p><strong>Image:</strong> ${results.filename}</p>
-                        <p><strong>Dimensions:</strong> ${stats.image_shape[1]}×${stats.image_shape[0]} px</p>
-                        <p><strong>Beaker Region:</strong> ${stats.beaker_region.x_start}-${stats.beaker_region.x_end}×${stats.beaker_region.y_start}-${stats.beaker_region.y_end}</p>
-                        <p><strong>Soil Line:</strong> y=${stats.soil_line_y} px</p>
-                    </div>
-                    <div class="col-6">
-                        <p><strong>Pixel Ratio:</strong> ${stats.pixel_ratio.toFixed(6)} cm/px</p>
-                        <p><strong>Soil Height:</strong> ${stats.soil_height_cm} cm (${stats.soil_height_inch} in)</p>
-                        <p><strong>Greenness Score:</strong> ${stats.greenness_score.toFixed(3)}</p>
-                        <p><strong>Colorfulness:</strong> ${stats.colorfulness_score.toFixed(3)}</p>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="alert alert-light">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Analysis completed at ${new Date(results.timestamp).toLocaleString()}
-                                ${stats.sam_loaded ? ' • SAM was used for detection' : ' • Traditional CV methods were used'}
-                            </small>
+function displayResults(results) {
+    hideProcessing();
+    
+    // Show results section
+    document.getElementById('resultsSection').classList.remove('d-none');
+    
+    // Scroll to results
+    document.getElementById('resultsSection').scrollIntoView({behavior: 'smooth'});
+    
+    // Update statistics - NOW IN INCHES
+    const stats = results.analysis;
+    const statsHtml = `
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <div class="stat-value">${stats.avg_height_inch.toFixed(3)}</div>
+                <div class="stat-label">Avg Height (in)</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <div class="stat-value">${stats.max_height_inch.toFixed(3)}</div>
+                <div class="stat-label">Max Height (in)</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <div class="stat-value">${stats.min_height_inch.toFixed(3)}</div>
+                <div class="stat-label">Min Height (in)</div>
+            </div>
+        </div>
+<div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+        <div class="stat-value">${(stats.health_score).toFixed(1)}%</div>
+        <div class="stat-label">Health Score</div>
+    </div>
+</div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <div class="stat-value">${stats.std_height_inch.toFixed(3)}</div>
+                <div class="stat-label">Std Dev (in)</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <div class="stat-value">${stats.median_height_inch.toFixed(3)}</div>
+                <div class="stat-label">Median Height (in)</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <div class="stat-value">${stats.plant_pixels.toLocaleString()}</div>
+                <div class="stat-label">Plant Pixels</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <div class="stat-value">${stats.canopy_points}</div>
+                <div class="stat-label">Canopy Points</div>
+            </div>
+        </div>
+    `;
+    document.getElementById('statsContainer').innerHTML = statsHtml;
+    
+    // Update images
+    if (results.images.overview) {
+        document.getElementById('overviewImage').src = `data:image/png;base64,${results.images.overview}`;
+    }
+    if (results.images.plant_mask) {
+        document.getElementById('maskImage').src = `data:image/png;base64,${results.images.plant_mask}`;
+    }
+    if (results.images.plant_health) {
+        document.getElementById('healthImage').src = `data:image/png;base64,${results.images.plant_health}`;
+    }
+    if (results.images.height_profile) {
+        document.getElementById('profileImage').src = `data:image/png;base64,${results.images.height_profile}`;
+    }
+    if (results.images.height_dist) {
+        document.getElementById('distImage').src = `data:image/png;base64,${results.images.height_dist}`;
+    }
+    
+    // Update detailed results - ADD INCH VALUES
+    const detailedHtml = `
+        <div class="row">
+            <div class="col-6">
+                <p><strong>Image:</strong> ${results.filename}</p>
+                <p><strong>Dimensions:</strong> ${stats.image_shape[1]}×${stats.image_shape[0]} px</p>
+                <p><strong>Beaker Region:</strong> ${stats.beaker_region.x_start}-${stats.beaker_region.x_end}×${stats.beaker_region.y_start}-${stats.beaker_region.y_end}</p>
+                <p><strong>Soil Line:</strong> y=${stats.soil_line_y} px</p>
+            </div>
+            <div class="col-6">
+                <p><strong>Pixel Ratio:</strong> ${stats.pixel_ratio.toFixed(6)} cm/px (${(stats.pixel_ratio/2.54).toFixed(6)} in/px)</p>
+                <p><strong>Soil Height:</strong> ${stats.soil_height_cm.toFixed(3)} cm (${stats.soil_height_inch.toFixed(3)} in)</p>
+                <p><strong>Greenness Score:</strong> ${stats.greenness_score.toFixed(3)}</p>
+                <p><strong>Colorfulness:</strong> ${stats.colorfulness_score.toFixed(3)}</p>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="alert alert-light">
+                    <h6><i class="fas fa-ruler me-2"></i>Height Summary (Inches):</h6>
+                    <div class="row">
+                        <div class="col-md-3 col-6">
+                            <small><strong>Average:</strong> ${stats.avg_height_inch.toFixed(3)} in</small>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small><strong>Maximum:</strong> ${stats.max_height_inch.toFixed(3)} in</small>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small><strong>Minimum:</strong> ${stats.min_height_inch.toFixed(3)} in</small>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <small><strong>Median:</strong> ${stats.median_height_inch.toFixed(3)} in</small>
                         </div>
                     </div>
                 </div>
-            `;
-            document.getElementById('detailedResults').innerHTML = detailedHtml;
-        }
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-12">
+                <div class="alert alert-light">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Analysis completed at ${new Date(results.timestamp).toLocaleString()}
+                        ${stats.sam_loaded ? ' • SAM was used for detection' : ' • Traditional CV methods were used'}
+                    </small>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('detailedResults').innerHTML = detailedHtml;
+}
         
         function showProcessing(title, text) {
             document.getElementById('processingTitle').textContent = title;
@@ -810,41 +827,42 @@
             link.click();
         }
         
-        function downloadCSV() {
-            if (!currentResults) return;
-            
-            const stats = currentResults.analysis;
-            const csvData = [
-                ['Metric', 'Value', 'Unit'],
-                ['Filename', currentResults.filename, ''],
-                ['Timestamp', currentResults.timestamp, ''],
-                ['Average Height', stats.avg_height_cm, 'cm'],
-                ['Average Height', stats.avg_height_inch, 'in'],
-                ['Maximum Height', stats.max_height_cm, 'cm'],
-                ['Minimum Height', stats.min_height_cm, 'cm'],
-                ['Median Height', stats.median_height_cm, 'cm'],
-                ['Std Deviation', stats.std_height_cm, 'cm'],
-                ['Health Score', stats.health_score, ''],
-                ['Greenness Score', stats.greenness_score, ''],
-                ['Colorfulness Score', stats.colorfulness_score, ''],
-                ['Plant Pixels', stats.plant_pixels, ''],
-                ['Soil Height', stats.soil_height_cm, 'cm'],
-                ['Pixel Ratio', stats.pixel_ratio, 'cm/px'],
-                ['Canopy Points', stats.canopy_points, ''],
-                ['Processing Time', stats.processing_time, 's'],
-                ['Image Width', stats.image_shape ? stats.image_shape[1] : '', 'px'],
-                ['Image Height', stats.image_shape ? stats.image_shape[0] : '', 'px'],
-                ['SAM Used', stats.sam_loaded ? 'Yes' : 'No', '']
-            ];
-            
-            const csv = Papa.unparse(csvData);
-            const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-            const link = document.createElement('a');
-            link.href = dataUri;
-            link.download = `wheatgrass_report_${currentResults.filename.replace(/\.[^/.]+$/, "")}_${Date.now()}.csv`;
-            link.click();
-        }
-        
+function downloadCSV() {
+    if (!currentResults) return;
+    
+    const stats = currentResults.analysis;
+    const health_percentage = (stats.health_score * 100 / 1.175).toFixed(2);
+    
+    const csvData = [
+        ['Metric', 'Value (Inches)', 'Value (CM)', 'Unit'],
+        ['Filename', currentResults.filename, '', ''],
+        ['Timestamp', currentResults.timestamp, '', ''],
+        ['Average Height', stats.avg_height_inch, stats.avg_height_cm, 'in / cm'],
+        ['Maximum Height', stats.max_height_inch, stats.max_height_cm, 'in / cm'],
+        ['Minimum Height', stats.min_height_inch, stats.min_height_cm, 'in / cm'],
+        ['Median Height', stats.median_height_inch, stats.median_height_cm, 'in / cm'],
+        ['Std Deviation', stats.std_height_inch, stats.std_height_cm, 'in / cm'],
+        ['Health Score (Raw)', stats.health_score, '', ''],
+        ['Health Score (%)', health_percentage, '', '%'],
+        ['Greenness Score', stats.greenness_score, '', ''],
+        ['Colorfulness Score', stats.colorfulness_score, '', ''],
+        ['Plant Pixels', stats.plant_pixels, '', ''],
+        ['Soil Height', stats.soil_height_inch, stats.soil_height_cm, 'in / cm'],
+        ['Pixel Ratio', (stats.pixel_ratio/2.54).toFixed(6), stats.pixel_ratio, 'in/px / cm/px'],
+        ['Canopy Points', stats.canopy_points, '', ''],
+        ['Processing Time', stats.processing_time, '', 's'],
+        ['Image Width', stats.image_shape ? stats.image_shape[1] : '', '', 'px'],
+        ['Image Height', stats.image_shape ? stats.image_shape[0] : '', '', 'px'],
+        ['SAM Used', stats.sam_loaded ? 'Yes' : 'No', '', '']
+    ];
+    
+    const csv = Papa.unparse(csvData);
+    const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    const link = document.createElement('a');
+    link.href = dataUri;
+    link.download = `wheatgrass_report_inches_${currentResults.filename.replace(/\.[^/.]+$/, "")}_${Date.now()}.csv`;
+    link.click();
+}
         function downloadImages() {
             if (!currentResults || !currentResults.images) return;
             
