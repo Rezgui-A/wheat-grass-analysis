@@ -1,19 +1,23 @@
-# Core web framework
-Flask==2.3.2
+Flask==2.3.3
 Werkzeug==2.3.7
-gunicorn==21.2.0
 
-# Computer vision (use older compatible versions)
-numpy==1.23.5
-opencv-python-headless==4.7.0.72
-Pillow==9.5.0
-
-# Plotting
-matplotlib==3.6.3
+# Computer Vision - use compatible versions
+numpy==1.24.3
+opencv-python-headless==4.8.1.78
+Pillow==10.0.0
 
 # Scientific computing
-scipy==1.9.3
+scipy==1.11.2
+matplotlib==3.7.2
+requests==2.31.0
 
-# PyTorch for CPU (older but stable)
-torch==1.12.1+cpu --index-url https://download.pytorch.org/whl/cpu
-torchvision==0.13.1+cpu --index-url https://download.pytorch.org/whl/cpu
+# PyTorch for Python 3.11 - use these EXACT versions
+torch==2.0.1
+torchvision==0.15.2
+
+# SAM - use the compatible version
+segment-anything==1.0
+
+# Build tools (critical!)
+setuptools==69.0.2
+wheel==0.43.0
