@@ -475,7 +475,7 @@ def detect_soil_line_ultimate(image, beaker_region):
 
 def detect_plants_ultimate(image, beaker_region, soil_line_y):
     """
-    ULTIMATE plant detection - detects ALL plant colors properly
+    ULTIMATE plant detection - enhanced to handle pink background
     """
     x_start, x_end, y_start, y_end = beaker_region
     h, w = image.shape[:2]
@@ -488,72 +488,72 @@ def detect_plants_ultimate(image, beaker_region, soil_line_y):
     if plant_region.size == 0:
         return np.zeros((h, w), dtype=bool)
     
-    hsv = cv2.cvtColor(plant_region, cv2.COLOR_RGB2HSV)
+    # Convert to LAB color space (better for color constancy)
     lab = cv2.cvtColor(plant_region, cv2.COLOR_RGB2LAB)
+    hsv = cv2.cvtColor(plant_region, cv2.COLOR_RGB2HSV)
     
-    # EXPANDED WHEATGRASS COLOR RANGES
-    lower_dark_green = np.array([35, 40, 30])
-    upper_dark_green = np.array([85, 255, 180])
+    # EXPANDED PLANT COLOR RANGES (adjusted for pink background)
+    # Use LAB color space which is less sensitive to lighting variations
     
-    lower_light_green = np.array([40, 30, 50])
-    upper_light_green = np.array([90, 200, 220])
+    # Green plants in LAB space
+    lower_green_lab = np.array([0, 120, 120])
+    upper_green_lab = np.array([255, 140, 140])
     
-    lower_yellow_green = np.array([25, 40, 40])
-    upper_yellow_green = np.array([40, 200, 200])
+    # Yellow-green plants
+    lower_yellow_lab = np.array([0, 130, 140])
+    upper_yellow_lab = np.array([255, 145, 155])
     
-    lower_light_brown = np.array([10, 30, 40])
-    upper_light_brown = np.array([25, 150, 160])
+    # Light green plants
+    lower_light_green_lab = np.array([0, 125, 130])
+    upper_light_green_lab = np.array([255, 140, 145])
     
-    lower_yellow = np.array([15, 40, 50])
-    upper_yellow = np.array([30, 180, 200])
+    # Enhanced HSV ranges (widened to capture true plant colors)
+    lower_green_hsv = np.array([35, 30, 30])   # Lower saturation/value thresholds
+    upper_green_hsv = np.array([95, 220, 220]) # Higher hue range
     
-    lower_all_green = np.array([30, 20, 30])
-    upper_all_green = np.array([100, 220, 200])
+    # Yellow/brown (mature/drying plants)
+    lower_yellow_hsv = np.array([20, 25, 40])
+    upper_yellow_hsv = np.array([45, 180, 200])
     
-    lower_lab_green = np.array([0, 120, 120])
-    upper_lab_green = np.array([255, 140, 140])
-    
-    # Create masks for ALL PLANT COLORS
+    # Create masks using multiple color spaces
     plant_masks = []
-    plant_masks.append(cv2.inRange(hsv, lower_dark_green, upper_dark_green))
-    plant_masks.append(cv2.inRange(hsv, lower_light_green, upper_light_green))
-    plant_masks.append(cv2.inRange(hsv, lower_yellow_green, upper_yellow_green))
-    plant_masks.append(cv2.inRange(hsv, lower_light_brown, upper_light_brown))
-    plant_masks.append(cv2.inRange(hsv, lower_yellow, upper_yellow))
-    plant_masks.append(cv2.inRange(hsv, lower_all_green, upper_all_green))
-    plant_masks.append(cv2.inRange(lab, lower_lab_green, upper_lab_green))
     
+    # LAB space masks (more robust)
+    plant_masks.append(cv2.inRange(lab, lower_green_lab, upper_green_lab))
+    plant_masks.append(cv2.inRange(lab, lower_yellow_lab, upper_yellow_lab))
+    plant_masks.append(cv2.inRange(lab, lower_light_green_lab, upper_light_green_lab))
+    
+    # HSV space masks (adjusted thresholds)
+    plant_masks.append(cv2.inRange(hsv, lower_green_hsv, upper_green_hsv))
+    plant_masks.append(cv2.inRange(hsv, lower_yellow_hsv, upper_yellow_hsv))
+    
+    # Combine all plant masks
     plant_mask_combined = plant_masks[0]
     for mask in plant_masks[1:]:
         plant_mask_combined = cv2.bitwise_or(plant_mask_combined, mask)
     
-    # EXCLUDE PINK BACKGROUND
-    lower_pink1 = np.array([140, 20, 140])
-    upper_pink1 = np.array([180, 100, 255])
-    lower_pink2 = np.array([160, 15, 150])
-    upper_pink2 = np.array([180, 80, 255])
-    lower_pink3 = np.array([0, 10, 140])
-    upper_pink3 = np.array([10, 90, 255])
+    # ENHANCED PINK BACKGROUND EXCLUSION
+    # More specific pink ranges in LAB space (pink has high A and B values)
+    lower_pink_lab = np.array([150, 130, 130])
+    upper_pink_lab = np.array([255, 255, 255])
+    pink_lab_mask = cv2.inRange(lab, lower_pink_lab, upper_pink_lab)
     
-    pink_mask1 = cv2.inRange(hsv, lower_pink1, upper_pink1)
-    pink_mask2 = cv2.inRange(hsv, lower_pink2, upper_pink2)
-    pink_mask3 = cv2.inRange(hsv, lower_pink3, upper_pink3)
+    # HSV pink ranges (narrower to avoid excluding plants)
+    lower_pink_hsv = np.array([150, 40, 150])  # More specific
+    upper_pink_hsv = np.array([180, 100, 255])
     
-    pink_mask_combined = cv2.bitwise_or(pink_mask1, pink_mask2)
-    pink_mask_combined = cv2.bitwise_or(pink_mask_combined, pink_mask3)
+    lower_magenta = np.array([160, 30, 140])
+    upper_magenta = np.array([175, 90, 220])
     
-    lower_light = np.array([0, 0, 200])
-    upper_light = np.array([180, 30, 255])
-    light_mask = cv2.inRange(hsv, lower_light, upper_light)
+    pink_hsv_mask1 = cv2.inRange(hsv, lower_pink_hsv, upper_pink_hsv)
+    pink_hsv_mask2 = cv2.inRange(hsv, lower_magenta, upper_magenta)
     
-    lower_dark = np.array([0, 0, 0])
-    upper_dark = np.array([180, 255, 40])
-    dark_mask = cv2.inRange(hsv, lower_dark, upper_dark)
+    # Combine pink masks
+    pink_mask = cv2.bitwise_or(pink_lab_mask, pink_hsv_mask1)
+    pink_mask = cv2.bitwise_or(pink_mask, pink_hsv_mask2)
     
-    background_mask = cv2.bitwise_or(pink_mask_combined, light_mask)
-    background_mask = cv2.bitwise_or(background_mask, dark_mask)
-    
-    plant_mask_combined = cv2.bitwise_and(plant_mask_combined, cv2.bitwise_not(background_mask))
+    # Remove pink from plant mask
+    plant_mask_combined = cv2.bitwise_and(plant_mask_combined, cv2.bitwise_not(pink_mask))
     
     # POST-PROCESSING
     kernel_open = np.ones((2, 2), np.uint8)
@@ -562,81 +562,156 @@ def detect_plants_ultimate(image, beaker_region, soil_line_y):
     kernel_close = np.ones((3, 3), np.uint8)
     plant_mask_combined = cv2.morphologyEx(plant_mask_combined, cv2.MORPH_CLOSE, kernel_close)
     
-    vertical_kernel = np.ones((13, 1), np.uint8)
-    plant_mask_combined = cv2.morphologyEx(plant_mask_combined, cv2.MORPH_CLOSE, vertical_kernel)
-    
     # Remove small components
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(plant_mask_combined, connectivity=8)
     cleaned_mask = np.zeros_like(plant_mask_combined)
     
     for i in range(1, num_labels):
         area = stats[i, cv2.CC_STAT_AREA]
-        width = stats[i, cv2.CC_STAT_WIDTH]
         height = stats[i, cv2.CC_STAT_HEIGHT]
         
-        if area >= 20:
-            if width > 0:
-                aspect_ratio = height / width
-            else:
-                aspect_ratio = 0
-            
-            if (aspect_ratio > 1.5 and height > 15) or area > 80 or (area > 40 and height > 10):
-                cleaned_mask[labels == i] = 255
+        if area >= 25 and height >= 10:  # More lenient area threshold
+            cleaned_mask[labels == i] = 255
     
     plant_mask_combined = cleaned_mask
     
-    # Fill small holes
-    contours, hierarchy = cv2.findContours(plant_mask_combined, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-    filled_mask = plant_mask_combined.copy()
-    
-    if hierarchy is not None:
-        hierarchy = hierarchy[0]
-        for i, (cnt, hier) in enumerate(zip(contours, hierarchy)):
-            if hier[3] >= 0:
-                area = cv2.contourArea(cnt)
-                if area <= 40:
-                    cv2.drawContours(filled_mask, [cnt], 0, 255, -1)
-    
-    plant_mask_combined = filled_mask
-    
-    vertical_dilate = np.ones((5, 1), np.uint8)
-    plant_mask_combined = cv2.dilate(plant_mask_combined, vertical_dilate, iterations=1)
-    
+    # Apply to full image
     full_mask = np.zeros((h, w), dtype=np.uint8)
     full_mask[plant_top:plant_bottom, x_start:x_end] = plant_mask_combined
     
-    # Check for plants ABOVE the beaker
-    if plant_top < y_start:
-        above_beaker = image[plant_top:y_start, x_start:x_end]
-        if above_beaker.size > 0:
-            above_hsv = cv2.cvtColor(above_beaker, cv2.COLOR_RGB2HSV)
-            above_lab = cv2.cvtColor(above_beaker, cv2.COLOR_RGB2LAB)
-            
-            above_mask1 = cv2.inRange(above_hsv, lower_dark_green, upper_dark_green)
-            above_mask2 = cv2.inRange(above_hsv, lower_light_green, upper_light_green)
-            above_mask3 = cv2.inRange(above_hsv, lower_yellow_green, upper_yellow_green)
-            above_mask4 = cv2.inRange(above_lab, lower_lab_green, upper_lab_green)
-            
-            above_mask = cv2.bitwise_or(above_mask1, above_mask2)
-            above_mask = cv2.bitwise_or(above_mask, above_mask3)
-            above_mask = cv2.bitwise_or(above_mask, above_mask4)
-            
-            above_pink_mask = cv2.inRange(above_hsv, lower_pink1, upper_pink1)
-            above_mask = cv2.bitwise_and(above_mask, cv2.bitwise_not(above_pink_mask))
-            
-            above_mask = cv2.morphologyEx(above_mask, cv2.MORPH_OPEN, np.ones((2,2), np.uint8))
-            above_mask = cv2.morphologyEx(above_mask, cv2.MORPH_CLOSE, np.ones((3,3), np.uint8))
-            
-            num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(above_mask, connectivity=8)
-            cleaned_above = np.zeros_like(above_mask)
-            for i in range(1, num_labels):
-                if stats[i, cv2.CC_STAT_AREA] >= 15:
-                    cleaned_above[labels == i] = 255
-            
-            full_mask[plant_top:y_start, x_start:x_end] = cleaned_above
-    
     return full_mask.astype(bool)
 
+
+def calculate_plant_health_ultimate(image, plant_mask):
+    """
+    Ultimate plant health calculation with percentage-based scoring
+    """
+    if np.sum(plant_mask) == 0:
+        return 0.0, 0.0, 0.0
+    
+    plant_pixels = image[plant_mask]
+    
+    # Convert to LAB color space for better color analysis
+    lab_pixels = cv2.cvtColor(plant_pixels.reshape(-1, 1, 3), cv2.COLOR_RGB2LAB).reshape(-1, 3)
+    hsv_pixels = cv2.cvtColor(plant_pixels.reshape(-1, 1, 3), cv2.COLOR_RGB2HSV).reshape(-1, 3)
+    
+    # Extract channels
+    L_channel = lab_pixels[:, 0]  # Lightness
+    a_channel = lab_pixels[:, 1]  # Green-Red
+    b_channel = lab_pixels[:, 2]  # Blue-Yellow
+    
+    hue = hsv_pixels[:, 0]
+    saturation = hsv_pixels[:, 1]
+    value = hsv_pixels[:, 2]
+    
+    # HEALTH CLASSIFICATION USING COMBINED COLOR SPACES
+    # 1. Healthy green plants (high greenness in LAB, proper hue in HSV)
+    healthy_lab_mask = (a_channel >= 120) & (a_channel <= 140) & (b_channel >= 120) & (b_channel <= 140)
+    healthy_hsv_mask = (hue >= 35) & (hue <= 85) & (saturation >= 40) & (value >= 40)
+    healthy_mask = healthy_lab_mask | healthy_hsv_mask
+    
+    # 2. Mature plants (slightly yellow-green)
+    mature_lab_mask = (b_channel >= 140) & (b_channel <= 155) & (a_channel >= 120) & (a_channel <= 145)
+    mature_hsv_mask = ((hue >= 25) & (hue < 35)) | ((hue > 85) & (hue <= 95))
+    mature_mask = mature_lab_mask | mature_hsv_mask
+    
+    # 3. Fresh/young plants (lighter green)
+    fresh_lab_mask = (L_channel >= 150) & (a_channel >= 120) & (a_channel <= 135) & (b_channel >= 120)
+    fresh_hsv_mask = (hue >= 85) & (hue <= 100) & (saturation >= 30)
+    fresh_mask = fresh_lab_mask | fresh_hsv_mask
+    
+    # 4. Drying plants (yellow-brown)
+    drying_lab_mask = (b_channel >= 145) & (b_channel <= 160) & (a_channel >= 110) & (a_channel <= 130)
+    drying_hsv_mask = (hue >= 15) & (hue < 25) & (saturation >= 20) & (value >= 50)
+    drying_mask = drying_lab_mask | drying_hsv_mask
+    
+    total_pixels = len(hue)
+    
+    # Calculate percentages
+    healthy_pct = np.sum(healthy_mask) / total_pixels
+    mature_pct = np.sum(mature_mask) / total_pixels
+    fresh_pct = np.sum(fresh_mask) / total_pixels
+    drying_pct = np.sum(drying_mask) / total_pixels
+    
+    # HEALTH SCORE AS PERCENTAGE (0-100%)
+    # Weighted average based on health classification
+    health_score = (healthy_pct * 0.9 + mature_pct * 0.7 + fresh_pct * 0.8 + drying_pct * 0.4) * 100
+    health_score = max(0, min(100, health_score))  # Clamp to 0-100%
+    
+    # GREENNESS SCORE (0-100%) - proportion of green pixels
+    green_hue_mask = (hue >= 25) & (hue <= 95)
+    green_lab_mask = (a_channel >= 120) & (a_channel <= 145)
+    greenness_score = np.mean(green_hue_mask | green_lab_mask) * 100
+    
+    # COLORFULNESS SCORE (0-100%) - average saturation normalized to percentage
+    colorfulness_score = (np.mean(saturation) / 255.0) * 100
+    
+    return round(health_score, 1), round(greenness_score, 1), round(colorfulness_score, 1)
+
+
+def calculate_plant_health_visualization(image, plant_mask, health_score, greenness_score, colorfulness_score):
+    """
+    Generate enhanced plant health visualization with score overlays
+    """
+    h, w = image.shape[:2]
+    health_image = np.zeros_like(image)
+    plant_indices = np.where(plant_mask)
+    
+    if len(plant_indices[0]) > 0:
+        plant_pixels = image[plant_mask]
+        hsv_pixels = cv2.cvtColor(plant_pixels.reshape(-1, 1, 3), cv2.COLOR_RGB2HSV).reshape(-1, 3)
+        lab_pixels = cv2.cvtColor(plant_pixels.reshape(-1, 1, 3), cv2.COLOR_RGB2LAB).reshape(-1, 3)
+        
+        hue = hsv_pixels[:, 0]
+        value = hsv_pixels[:, 2]
+        a_channel = lab_pixels[:, 1]
+        b_channel = lab_pixels[:, 2]
+        
+        for i in range(min(len(plant_indices[0]), len(hue))):
+            y, x = plant_indices[0][i], plant_indices[1][i]
+            h_val = hue[i]
+            v_val = value[i]
+            a_val = a_channel[i]
+            b_val = b_channel[i]
+            
+            # Enhanced classification with LAB space
+            if (35 <= h_val <= 85 and v_val > 40) or (120 <= a_val <= 140 and 120 <= b_val <= 140):
+                health_image[y, x] = [0, 200, 0]  # Healthy green
+            elif ((25 <= h_val < 35 and v_val > 40) or 
+                  (140 <= b_val <= 155 and 120 <= a_val <= 145)):
+                health_image[y, x] = [200, 200, 0]  # Mature yellow-green
+            elif (h_val >= 85 and v_val > 40):
+                health_image[y, x] = [150, 255, 150]  # Fresh light green
+            elif (15 <= h_val < 25 and v_val > 50):
+                health_image[y, x] = [205, 133, 63]  # Drying brown
+            else:
+                health_image[y, x] = [100, 100, 100]  # Unclassified
+    
+    blended = cv2.addWeighted(image, 0.3, health_image, 0.7, 0)
+    
+    # Add score overlay
+    overlay = blended.copy()
+    cv2.putText(overlay, f"Health: {health_score}%", (20, 40), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
+    cv2.putText(overlay, f"Greenness: {greenness_score}%", (20, 80), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+    cv2.putText(overlay, f"Colorfulness: {colorfulness_score}%", (20, 120), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+    
+    # Add color legend
+    cv2.rectangle(overlay, (w-200, 20), (w-10, 150), (0, 0, 0), -1)
+    cv2.putText(overlay, "Legend:", (w-190, 50), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+    cv2.putText(overlay, "Green = Healthy", (w-190, 80), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    cv2.putText(overlay, "Yellow = Mature", (w-190, 100), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+    cv2.putText(overlay, "Light Green = Fresh", (w-190, 120), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 255, 150), 1)
+    cv2.putText(overlay, "Brown = Drying", (w-190, 140), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (205, 133, 63), 1)
+    
+    return overlay
 def extract_canopy_boundary_ultimate(plant_mask, soil_line_y, beaker_region):
     """
     Canopy boundary extraction - plants above soil only
@@ -707,40 +782,6 @@ def extract_canopy_boundary_ultimate(plant_mask, soil_line_y, beaker_region):
     
     return x_vals, y_vals
 
-def calculate_plant_health_ultimate(image, plant_mask):
-    """
-    Ultimate plant health calculation
-    """
-    if np.sum(plant_mask) == 0:
-        return 0.0, 0.0, 0.0
-    
-    plant_pixels = image[plant_mask]
-    
-    hsv = cv2.cvtColor(plant_pixels.reshape(-1, 1, 3), cv2.COLOR_RGB2HSV).reshape(-1, 3)
-    hue = hsv[:, 0]
-    saturation = hsv[:, 1]
-    value = hsv[:, 2]
-    
-    healthy_green = (hue >= 35) & (hue <= 85) & (saturation >= 40) & (value >= 40)
-    mature_green = ((hue >= 25) & (hue < 35)) | ((hue > 85) & (hue <= 95)) & (saturation >= 30)
-    drying = ((hue >= 15) & (hue < 25)) & (saturation >= 20) & (value >= 50)
-    fresh = (hue >= 85) & (hue <= 100) & (saturation >= 30)
-    
-    total_pixels = len(hue)
-    
-    healthy_pct = np.sum(healthy_green) / total_pixels
-    mature_pct = np.sum(mature_green) / total_pixels
-    drying_pct = np.sum(drying) / total_pixels
-    fresh_pct = np.sum(fresh) / total_pixels
-    
-    # Apply 1.175 multiplier to health score
-    health_score = (healthy_pct * 0.9 + mature_pct * 0.7 + fresh_pct * 0.8 + drying_pct * 0.4) * 1.175
-    health_score = max(0, min(1.175, health_score))  # Update max to 1.175
-    
-    greenness_score = np.mean((hue >= 25) & (hue <= 95)) if np.any(hue) else 0
-    colorfulness_score = np.mean(saturation) / 255.0 if np.any(saturation) else 0
-    
-    return health_score, greenness_score, colorfulness_score
 
 # ===== WEB-SPECIFIC FUNCTIONS =====
 
@@ -957,38 +998,27 @@ def generate_visualization_images(image, plant_mask, canopy_x, canopy_y, soil_li
         plt.close(fig)
     
     # 5. Plant Health Visualization
+    # 5. Plant Health Visualization (Enhanced)
     fig, ax = plt.subplots(figsize=(10, 8))
-    health_image = np.zeros_like(image)
-    plant_indices = np.where(plant_mask)
     
-    if len(plant_indices[0]) > 0:
-        plant_pixels = image[plant_mask]
-        hsv_pixels = cv2.cvtColor(plant_pixels.reshape(-1, 1, 3), cv2.COLOR_RGB2HSV).reshape(-1, 3)
-        hue = hsv_pixels[:, 0]
-        value = hsv_pixels[:, 2]
-        
-        for i in range(min(len(plant_indices[0]), len(hue))):
-            y, x = plant_indices[0][i], plant_indices[1][i]
-            h_val = hue[i]
-            v_val = value[i]
-            
-            if 35 <= h_val <= 85 and v_val > 40:
-                health_image[y, x] = [0, 200, 0]
-            elif 25 <= h_val < 35 and v_val > 40:
-                health_image[y, x] = [200, 200, 0]
-            elif 85 < h_val <= 100 and v_val > 40:
-                health_image[y, x] = [150, 255, 150]
-            elif 15 <= h_val < 25 and v_val > 50:
-                health_image[y, x] = [205, 133, 63]
-            else:
-                health_image[y, x] = [100, 100, 100]
+    # Get health scores from results
+    health_score = results['health_score']
+    greenness_score = results['greenness_score']
+    colorfulness_score = results['colorfulness_score']
     
-    blended = cv2.addWeighted(image, 0.25, health_image, 0.75, 0)
-    ax.imshow(blended)
+    # Generate enhanced health visualization
+    health_overlay = calculate_plant_health_visualization(
+        image, plant_mask, health_score, greenness_score, colorfulness_score
+    )
+    
+    # Convert BGR overlay to RGB for matplotlib
+    health_overlay_rgb = cv2.cvtColor(health_overlay, cv2.COLOR_BGR2RGB)
+    
+    ax.imshow(health_overlay_rgb)
     ax.axhline(y=soil_line_y, color='brown', linewidth=2, linestyle='--')
     if len(canopy_x) > 0:
         ax.plot(canopy_x, canopy_y, 'r-', linewidth=2, alpha=0.8)
-    ax.set_title('Plant Health (Green=Healthy, Yellow=Mature, Brown=Drying)')
+    ax.set_title(f'Plant Health Visualization - Health: {health_score}%, Greenness: {greenness_score}%, Colorfulness: {colorfulness_score}%')
     ax.axis('off')
     
     buf = io.BytesIO()
